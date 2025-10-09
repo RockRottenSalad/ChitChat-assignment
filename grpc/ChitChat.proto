@@ -1,0 +1,14 @@
+
+syntax = "proto3";
+
+package ChitChat;
+option go_package = "ChitChat/grpc";
+
+message Message {
+    string msg = 1;
+    uint64 timestamp = 2;
+}
+
+service MessageService {
+    rpc Connect(stream Message) returns (stream Message);
+}
