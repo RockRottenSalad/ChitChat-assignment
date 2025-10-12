@@ -21,10 +21,11 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Message which is sent from client to server and then to all other clients
 type Message struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Msg           string                 `protobuf:"bytes,1,opt,name=msg,proto3" json:"msg,omitempty"`
-	Timestamp     uint64                 `protobuf:"varint,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	AuthorID      uint32                 `protobuf:"varint,1,opt,name=authorID,proto3" json:"authorID,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -59,6 +60,13 @@ func (*Message) Descriptor() ([]byte, []int) {
 	return file_grpc_ChitChat_proto_rawDescGZIP(), []int{0}
 }
 
+func (x *Message) GetAuthorID() uint32 {
+	if x != nil {
+		return x.AuthorID
+	}
+	return 0
+}
+
 func (x *Message) GetMsg() string {
 	if x != nil {
 		return x.Msg
@@ -66,23 +74,204 @@ func (x *Message) GetMsg() string {
 	return ""
 }
 
-func (x *Message) GetTimestamp() uint64 {
+// Server replies which this so that the client known its own unique id which is used in the server
+type Accepted struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AuthorID      uint32                 `protobuf:"varint,1,opt,name=authorID,proto3" json:"authorID,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Accepted) Reset() {
+	*x = Accepted{}
+	mi := &file_grpc_ChitChat_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Accepted) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Accepted) ProtoMessage() {}
+
+func (x *Accepted) ProtoReflect() protoreflect.Message {
+	mi := &file_grpc_ChitChat_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Accepted.ProtoReflect.Descriptor instead.
+func (*Accepted) Descriptor() ([]byte, []int) {
+	return file_grpc_ChitChat_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Accepted) GetAuthorID() uint32 {
+	if x != nil {
+		return x.AuthorID
+	}
+	return 0
+}
+
+type MetaData struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Timestamp     uint32                 `protobuf:"varint,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MetaData) Reset() {
+	*x = MetaData{}
+	mi := &file_grpc_ChitChat_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MetaData) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MetaData) ProtoMessage() {}
+
+func (x *MetaData) ProtoReflect() protoreflect.Message {
+	mi := &file_grpc_ChitChat_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MetaData.ProtoReflect.Descriptor instead.
+func (*MetaData) Descriptor() ([]byte, []int) {
+	return file_grpc_ChitChat_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *MetaData) GetTimestamp() uint32 {
 	if x != nil {
 		return x.Timestamp
 	}
 	return 0
 }
 
+type Package struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to PackageData:
+	//
+	//	*Package_Msg
+	//	*Package_Accepted
+	PackageData   isPackage_PackageData `protobuf_oneof:"PackageData"`
+	MetaData      *MetaData             `protobuf:"bytes,3,opt,name=metaData,proto3" json:"metaData,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Package) Reset() {
+	*x = Package{}
+	mi := &file_grpc_ChitChat_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Package) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Package) ProtoMessage() {}
+
+func (x *Package) ProtoReflect() protoreflect.Message {
+	mi := &file_grpc_ChitChat_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Package.ProtoReflect.Descriptor instead.
+func (*Package) Descriptor() ([]byte, []int) {
+	return file_grpc_ChitChat_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Package) GetPackageData() isPackage_PackageData {
+	if x != nil {
+		return x.PackageData
+	}
+	return nil
+}
+
+func (x *Package) GetMsg() *Message {
+	if x != nil {
+		if x, ok := x.PackageData.(*Package_Msg); ok {
+			return x.Msg
+		}
+	}
+	return nil
+}
+
+func (x *Package) GetAccepted() *Accepted {
+	if x != nil {
+		if x, ok := x.PackageData.(*Package_Accepted); ok {
+			return x.Accepted
+		}
+	}
+	return nil
+}
+
+func (x *Package) GetMetaData() *MetaData {
+	if x != nil {
+		return x.MetaData
+	}
+	return nil
+}
+
+type isPackage_PackageData interface {
+	isPackage_PackageData()
+}
+
+type Package_Msg struct {
+	Msg *Message `protobuf:"bytes,1,opt,name=msg,proto3,oneof"`
+}
+
+type Package_Accepted struct {
+	Accepted *Accepted `protobuf:"bytes,2,opt,name=accepted,proto3,oneof"`
+}
+
+func (*Package_Msg) isPackage_PackageData() {}
+
+func (*Package_Accepted) isPackage_PackageData() {}
+
 var File_grpc_ChitChat_proto protoreflect.FileDescriptor
 
 const file_grpc_ChitChat_proto_rawDesc = "" +
 	"\n" +
-	"\x13grpc/ChitChat.proto\x12\bChitChat\"9\n" +
-	"\aMessage\x12\x10\n" +
-	"\x03msg\x18\x01 \x01(\tR\x03msg\x12\x1c\n" +
-	"\ttimestamp\x18\x02 \x01(\x04R\ttimestamp2E\n" +
+	"\x13grpc/ChitChat.proto\x12\bChitChat\"7\n" +
+	"\aMessage\x12\x1a\n" +
+	"\bauthorID\x18\x01 \x01(\rR\bauthorID\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\"&\n" +
+	"\bAccepted\x12\x1a\n" +
+	"\bauthorID\x18\x01 \x01(\rR\bauthorID\"(\n" +
+	"\bMetaData\x12\x1c\n" +
+	"\ttimestamp\x18\x01 \x01(\rR\ttimestamp\"\xa1\x01\n" +
+	"\aPackage\x12%\n" +
+	"\x03msg\x18\x01 \x01(\v2\x11.ChitChat.MessageH\x00R\x03msg\x120\n" +
+	"\baccepted\x18\x02 \x01(\v2\x12.ChitChat.AcceptedH\x00R\baccepted\x12.\n" +
+	"\bmetaData\x18\x03 \x01(\v2\x12.ChitChat.MetaDataR\bmetaDataB\r\n" +
+	"\vPackageData2E\n" +
 	"\x0eMessageService\x123\n" +
-	"\aConnect\x12\x11.ChitChat.Message\x1a\x11.ChitChat.Message(\x010\x01B\x0fZ\rChitChat/grpcb\x06proto3"
+	"\aConnect\x12\x11.ChitChat.Package\x1a\x11.ChitChat.Package(\x010\x01B\x0fZ\rChitChat/grpcb\x06proto3"
 
 var (
 	file_grpc_ChitChat_proto_rawDescOnce sync.Once
@@ -96,18 +285,24 @@ func file_grpc_ChitChat_proto_rawDescGZIP() []byte {
 	return file_grpc_ChitChat_proto_rawDescData
 }
 
-var file_grpc_ChitChat_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_grpc_ChitChat_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_grpc_ChitChat_proto_goTypes = []any{
-	(*Message)(nil), // 0: ChitChat.Message
+	(*Message)(nil),  // 0: ChitChat.Message
+	(*Accepted)(nil), // 1: ChitChat.Accepted
+	(*MetaData)(nil), // 2: ChitChat.MetaData
+	(*Package)(nil),  // 3: ChitChat.Package
 }
 var file_grpc_ChitChat_proto_depIdxs = []int32{
-	0, // 0: ChitChat.MessageService.Connect:input_type -> ChitChat.Message
-	0, // 1: ChitChat.MessageService.Connect:output_type -> ChitChat.Message
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0, // 0: ChitChat.Package.msg:type_name -> ChitChat.Message
+	1, // 1: ChitChat.Package.accepted:type_name -> ChitChat.Accepted
+	2, // 2: ChitChat.Package.metaData:type_name -> ChitChat.MetaData
+	3, // 3: ChitChat.MessageService.Connect:input_type -> ChitChat.Package
+	3, // 4: ChitChat.MessageService.Connect:output_type -> ChitChat.Package
+	4, // [4:5] is the sub-list for method output_type
+	3, // [3:4] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_grpc_ChitChat_proto_init() }
@@ -115,13 +310,17 @@ func file_grpc_ChitChat_proto_init() {
 	if File_grpc_ChitChat_proto != nil {
 		return
 	}
+	file_grpc_ChitChat_proto_msgTypes[3].OneofWrappers = []any{
+		(*Package_Msg)(nil),
+		(*Package_Accepted)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_grpc_ChitChat_proto_rawDesc), len(file_grpc_ChitChat_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

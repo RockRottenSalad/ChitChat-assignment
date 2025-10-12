@@ -2,13 +2,16 @@ package main;
 
 import (
 	proto "ChitChat/grpc"
+
+	clocks "ChitChat/clocks"
+
 	"net"
 	"log"
-	"io"
-	"context"
 	"sync"
-	"fmt"
 	"google.golang.org/grpc"
+
+	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/codes"
 )
 
 type ClientConnection struct {
@@ -19,17 +22,24 @@ type Server struct {
 	proto.UnimplementedMessageServiceServer
 	clientCount int
 	clients []*ClientConnection
+	clock clocks.LamportClock
 	mu sync.Mutex
 };
 
 func NewServer() Server {
-	return Server{clientCount: 0}
+	return Server{clientCount: 0, clock: clocks.NewClock(0)}
 }
 
 func (s *Server) AddClient(client *ClientConnection) int {
 	s.mu.Lock()
 
 	id := len(s.clients)
+
+	client.stream.Send(
+		&proto.Package{
+			PackageData: &proto.Package_Accepted{Accepted: &proto.Accepted{AuthorID: uint32(id)} }, 
+			MetaData: &proto.MetaData {Timestamp: s.clock.ThisTime()} })
+
 	s.clients = append(s.clients, client)
 	s.clientCount += 1
 
@@ -49,10 +59,11 @@ func (s *Server) RemoveClient(index int) {
 	s.mu.Unlock()
 }
 
-func (s *Server) Replicate(id int, message *proto.Message) {
+func (s *Server) Replicate(id int, message *proto.Package) {
 	for i := range s.clientCount {
-		if i == id { continue; }
+//		if i == id { continue; }
 		err := s.clients[i].stream.Send(message)
+
 		if err != nil { log.Println("Server: Client died - Should inform handler in the future")  }
 	}
 }
@@ -83,6 +94,7 @@ func (s *Server) Connect(stream proto.MessageService_ConnectServer) error {
 	client := ClientConnection{ stream: stream }
 
 	id := s.AddClient(&client)
+
 	log.Printf("Server: Added client %d: %v", id, s.clients[id])
 
 	ctx := stream.Context()
@@ -90,6 +102,7 @@ func (s *Server) Connect(stream proto.MessageService_ConnectServer) error {
 	for {
 		select {
 		case <-ctx.Done():
+			log.Println("Server: Context is done")
 			return ctx.Err()
 		default:
 		}
@@ -97,23 +110,32 @@ func (s *Server) Connect(stream proto.MessageService_ConnectServer) error {
 		req, err := stream.Recv()
 
 		if err != nil {
-			switch err {
-			case io.EOF: 
+			switch status.Code(err) {
+			case codes.Aborted: 
 					log.Println("Server: Got EOF from client, terminating connection")
-			case context.Canceled:
+			case codes.Canceled:
 					log.Println("Server: Client cancelled connection")
+					continue
 			default:
 					log.Printf("Server: Error on recv - %s\n", err.Error())
 			}
 			break
 		}
 
-		log.Printf("Server: Got msg '%s' from %d\n", req.Msg, id)
+		switch req.PackageData.(type) {
+		case *proto.Package_Accepted:
+			log.Printf("Server: Client %d sent package accepted instead of message\n", id)
+			default:
+		}
 
-		resp := proto.Message{Msg: fmt.Sprintf("From client %d: %s", id, req.Msg), Timestamp: 0}
+		log.Printf("Server: Got msg '%s' from %d\n", req.GetMsg().Msg, id)
 
-		s.Replicate(id, &resp)
+		clientClock := clocks.NewClock(req.MetaData.Timestamp)
+		s.clock.MergeClocks(&clientClock)
 
+		req.MetaData.Timestamp = s.clock.ThisTime()
+
+		s.Replicate(id, req)
 	}
 
 	s.RemoveClient(id)

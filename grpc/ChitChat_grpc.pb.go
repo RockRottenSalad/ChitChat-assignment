@@ -26,7 +26,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MessageServiceClient interface {
-	Connect(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[Message, Message], error)
+	Connect(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[Package, Package], error)
 }
 
 type messageServiceClient struct {
@@ -37,24 +37,24 @@ func NewMessageServiceClient(cc grpc.ClientConnInterface) MessageServiceClient {
 	return &messageServiceClient{cc}
 }
 
-func (c *messageServiceClient) Connect(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[Message, Message], error) {
+func (c *messageServiceClient) Connect(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[Package, Package], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &MessageService_ServiceDesc.Streams[0], MessageService_Connect_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[Message, Message]{ClientStream: stream}
+	x := &grpc.GenericClientStream[Package, Package]{ClientStream: stream}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type MessageService_ConnectClient = grpc.BidiStreamingClient[Message, Message]
+type MessageService_ConnectClient = grpc.BidiStreamingClient[Package, Package]
 
 // MessageServiceServer is the server API for MessageService service.
 // All implementations must embed UnimplementedMessageServiceServer
 // for forward compatibility.
 type MessageServiceServer interface {
-	Connect(grpc.BidiStreamingServer[Message, Message]) error
+	Connect(grpc.BidiStreamingServer[Package, Package]) error
 	mustEmbedUnimplementedMessageServiceServer()
 }
 
@@ -65,7 +65,7 @@ type MessageServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedMessageServiceServer struct{}
 
-func (UnimplementedMessageServiceServer) Connect(grpc.BidiStreamingServer[Message, Message]) error {
+func (UnimplementedMessageServiceServer) Connect(grpc.BidiStreamingServer[Package, Package]) error {
 	return status.Errorf(codes.Unimplemented, "method Connect not implemented")
 }
 func (UnimplementedMessageServiceServer) mustEmbedUnimplementedMessageServiceServer() {}
@@ -90,11 +90,11 @@ func RegisterMessageServiceServer(s grpc.ServiceRegistrar, srv MessageServiceSer
 }
 
 func _MessageService_Connect_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(MessageServiceServer).Connect(&grpc.GenericServerStream[Message, Message]{ServerStream: stream})
+	return srv.(MessageServiceServer).Connect(&grpc.GenericServerStream[Package, Package]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type MessageService_ConnectServer = grpc.BidiStreamingServer[Message, Message]
+type MessageService_ConnectServer = grpc.BidiStreamingServer[Package, Package]
 
 // MessageService_ServiceDesc is the grpc.ServiceDesc for MessageService service.
 // It's only intended for direct use with grpc.RegisterService,

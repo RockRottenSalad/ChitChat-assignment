@@ -4,11 +4,29 @@ syntax = "proto3";
 package ChitChat;
 option go_package = "ChitChat/grpc";
 
+// Message which is sent from client to server and then to all other clients
 message Message {
-    string msg = 1;
-    uint64 timestamp = 2;
+    uint32 authorID = 1;
+    string msg = 2;
+}
+
+// Server replies which this so that the client known its own unique id which is used in the server
+message Accepted {
+  uint32 authorID = 1;
+}
+
+message MetaData {
+  uint32 timestamp = 1;
+}
+
+message Package {
+  oneof PackageData {
+    Message msg = 1;
+    Accepted accepted = 2;
+  }
+  MetaData metaData = 3;
 }
 
 service MessageService {
-    rpc Connect(stream Message) returns (stream Message);
+    rpc Connect(stream Package) returns (stream Package);
 }
