@@ -2,43 +2,90 @@ package main;
 
 import (
 	"log"
-	"os"
 	"fmt"
-	"bufio"
+	"strings"
 	"ChitChat/ui"
 )
 
-func stdinReader(ch chan string) {
-	reader := bufio.NewReader(os.Stdin)
+type State uint8
+const (
+	PickUsername State = iota
+	InChat
+	Exit
+)
+type Application struct {
+	inputBuffer *strings.Builder
+	client *Client
+	tui *ui.UI
 
-	for {
-		bytes, _, _ := reader.ReadLine()
-		ch <- string(bytes)
-	}
+	messages []ReceivedMessage
+	state State
 }
 
-func streamReader(client *Client, reps chan ReceivedMessage, errs chan error) {
-	for {
-		rep, err := client.Recv()
+func NewApp() *Application {
+	app := new(Application) 
+	*app = Application {
+		inputBuffer: &strings.Builder{},
+		client: NewClient("127.0.0.1", "8080"),
+		tui: ui.NewUI(),
+		state: InChat,
+	}
 
-		if err != nil {
-			errs <- err
-			return
+	app.renderMessages()
+
+	app.tui.SetCallback(app.handleInput)
+	app.client.SetCallback(app.handleMessage)
+
+	return app
+}
+
+func (app *Application) handleInput(key ui.Key) {
+	if key.IsSpecial()  {
+		switch key.GetSpecial() {
+		case ui.Return:
+		app.client.Send(app.inputBuffer.String())
+		app.inputBuffer.Reset()
+		case ui.Esc:
+		app.appExit()
+		default:
+		// TODO: Handle arrow keys
 		}
+	} else {
+		app.inputBuffer.WriteRune(key.GetLetter())
+	}
+	app.render()
+}
 
-		reps <- rep
+func (app *Application) handleMessage(msg ReceivedMessage, err error) {
+	if err != nil {
+		log.Fatalln("TODO: Don't panic")
+	}else {
+		app.messages = append(app.messages, msg)
+	}
+
+	app.renderMessages()
+}
+
+func (app *Application) render() {
+	switch app.state {
+	case PickUsername:
+	app.renderStartMenu()
+
+	case InChat:
+	app.renderMessages()
 	}
 }
 
-func renderMessages(u *ui.UI, id uint32, messages []ReceivedMessage) {
-	u.SetCursor(0, 0)
-	u.Write("Chit Chat", ui.Red, ui.Default, ui.Underlined)
+func (app *Application) renderMessages() {
+	app.tui.SetCursor(0, 0)
+	app.tui.Write("Chit Chat", ui.Red, ui.Default, ui.Underlined)
+	id := app.client.Id()
 
-	for i := range len(messages) {
-		u.SetCursor(uint(i + 1), 2)
+	for i := range len(app.messages) {
+		app.tui.SetCursor(uint(i + 1), 2)
 
 		var col ui.Color
-		if messages[i].author == id {
+		if app.messages[i].author == id {
 			col = ui.Blue
 		} else {
 			col = ui.Red
@@ -46,54 +93,47 @@ func renderMessages(u *ui.UI, id uint32, messages []ReceivedMessage) {
 
 		// Replace author with actual username in future,
 		// currently auhtor is included in the message
-		u.Write(fmt.Sprintf("Client %d @ %d:", messages[i].author, messages[i].lamportTimestamp), ui.Default, col, ui.Italic)
-		u.Write(messages[i].message, ui.Default, ui.Default, ui.Normal)
+		app.tui.Write(fmt.Sprintf("Client %d @ %d:",
+			app.messages[i].author,
+			app.messages[i].lamportTimestamp),
+			ui.Default, col, ui.Italic)
+
+		app.tui.Write(app.messages[i].message,
+			ui.Default, ui.Default, ui.Normal)
 	}
 
-	u.SetCursor(uint(len(messages) + 1), 0)
-	u.Write("> ", ui.Blue, ui.Default, ui.Bold)
+	app.tui.SetCursor(uint(len(app.messages) + 1), 0)
+	app.tui.Write("> ", ui.Blue, ui.Default, ui.Bold)
+	app.tui.Write(app.inputBuffer.String(), ui.Default, ui.Default, ui.Normal)
 
-	u.Render()
+	app.tui.Render()
 }
 
+func (app *Application) renderStartMenu() {
+	halfHeight := app.tui.GetUIHeight() / 2
+	halfWidth := app.tui.GetUIWidth() / 2
+
+	app.tui.SetCursor(halfHeight - 1, 0)
+	app.tui.WriteCentered("Enter username:", ui.Default, ui.Default, ui.Bold)
+	app.tui.SetCursor(halfHeight + 1, halfWidth)
+	app.tui.Render()
+}
+
+func (app *Application) appExit() {
+	app.state = Exit
+	app.tui.TerminateUI()
+	app.client.Close()
+}
+
+func (app *Application) ShouldExit() bool {
+	return app.state == Exit
+}
+
+
 func main() {
-	ui := ui.NewUI()
+	app := NewApp()
 
-	client := NewClient("127.0.0.1", "8080")
-
-	inputs := make(chan string)
-	reps := make(chan ReceivedMessage)
-	errs := make(chan error)
-
-	defer close(inputs)
-	defer close(reps)
-	defer close(errs)
-	defer client.Close()
-
-	var messages []ReceivedMessage
-	renderMessages(&ui, client.id, messages)
-
-	go streamReader(&client, reps, errs)
-	go stdinReader(inputs)
-	out:
-	for {
-
-		select {
-		case input := <- inputs:
-			err := client.Send(input)
-			if err != nil {
-				log.Printf("Client got error on send - %s\n", err.Error())
-				break out
-			}
-		case rep := <- reps:
-			messages = append(messages, rep)
-			renderMessages(&ui, client.id, messages)
-		case err := <- errs:
-			log.Printf("Cilent: Got error on recv - %s\n", err.Error())
-			break out
-		}
-
-	}
+	for !app.ShouldExit() {}
 
 	log.Printf("Client: Exiting")
 }

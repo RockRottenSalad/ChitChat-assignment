@@ -23,9 +23,11 @@ type Client struct {
 	stream grpc.BidiStreamingClient[proto.Package, proto.Package]
 	clock clocks.LamportClock
 	id uint32
+
+	callback func(ReceivedMessage, error)
 }
 
-func NewClient(ip string, port string) Client {
+func NewClient(ip string, port string) *Client {
 
 	conn, err := grpc.NewClient(
 		ip + ":" + port,
@@ -62,7 +64,19 @@ func NewClient(ip string, port string) Client {
 		log.Fatalln("Client: Could not determine type of server's package response")
 	}
 
-	return Client { conn: conn, client: client, stream: stream, clock: clocks.NewClock(0), id: id}
+	newClient := new(Client)
+	*newClient = Client { 
+		conn: conn,
+		client: client,
+		stream: stream,
+		clock: clocks.NewClock(0),
+		id: id,
+		callback: func (ReceivedMessage, error) { println("Client: Unhandled callback") },
+	}
+
+	go newClient.msgHandler()
+
+	return newClient
 }
 
 func (this *Client) Send(message string) error {
@@ -95,7 +109,23 @@ func (this *Client) Recv() (ReceivedMessage, error) {
 		
 }
 
+func (this *Client) msgHandler() {
+	for {
+		resp, err := this.Recv()
+		for this.callback == nil {}
+		this.callback(resp, err)
+	}
+}
+
 func (this *Client) Close() {
 	this.stream.CloseSend()
+}
+
+func (this *Client) Id() uint32 {
+	return this.id
+}
+
+func (this *Client) SetCallback(callback func(ReceivedMessage, error)) {
+	this.callback = callback
 }
 
