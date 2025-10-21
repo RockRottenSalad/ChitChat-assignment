@@ -199,7 +199,7 @@ func (ui *UI) writeText(str string) {
 //	}
 
 	ui.row += (ui.column + uint(len(str))) / ui.width
-	ui.column += uint(len(str))
+	ui.column = (ui.column + uint(len(str))) % ui.width
 }
 
 
@@ -263,6 +263,10 @@ func (ui *UI) GetUIHeight() uint {
 
 func (ui *UI) GetUIWidth() uint {
 	return ui.width
+}
+
+func (ui *UI) GetCursor() (uint, uint) {
+	return ui.row, ui.column
 }
 
 func (ui *UI) Render() {

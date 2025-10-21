@@ -15,8 +15,29 @@ import (
 )
 
 type ClientConnection struct {
+	user string
+	connID int
 	stream proto.MessageService_ConnectServer
 }
+
+func (c *ClientConnection) Recv() *proto.Package {
+	rep, err := c.stream.Recv()
+
+	if err != nil {
+		switch status.Code(err) {
+		case codes.Aborted: 
+			log.Println("Server: Got EOF from client, terminating connection")
+		case codes.Canceled:
+			log.Println("Server: Client cancelled connection")
+		default:
+			log.Printf("Server: Error on recv - %s\n", err.Error())
+		}
+		return nil
+	}
+
+	return rep
+}
+
 
 type Server struct {
 	proto.UnimplementedMessageServiceServer
@@ -87,11 +108,34 @@ func (s *Server) StartServer() {
 	}
 }
 
+func (s *Server) handleNewConnection(client *ClientConnection) bool {
+	req := client.Recv()
+
+	if req == nil {
+		return false
+	}
+
+	switch req.PackageData.(type) {
+	case *proto.Package_Accepted:
+		log.Println("Server: Client sent package Accepted instead of Username Request")
+		return false
+	case *proto.Package_Msg:
+		log.Println("Server: Client sent package Message instead of Username Request")
+		return false
+	}
+
+	userReq := req.GetUsernameRequest()
+
+	return true
+}
+
 func (s *Server) Connect(stream proto.MessageService_ConnectServer) error {
 
 	log.Println("Server: New client connected")
 
 	client := ClientConnection{ stream: stream }
+
+	s.handleNewConnection(&client)
 
 	id := s.AddClient(&client)
 
@@ -107,25 +151,21 @@ func (s *Server) Connect(stream proto.MessageService_ConnectServer) error {
 		default:
 		}
 
-		req, err := stream.Recv()
+		req := client.Recv()
 
-		if err != nil {
-			switch status.Code(err) {
-			case codes.Aborted: 
-					log.Println("Server: Got EOF from client, terminating connection")
-			case codes.Canceled:
-					log.Println("Server: Client cancelled connection")
-					continue
-			default:
-					log.Printf("Server: Error on recv - %s\n", err.Error())
-			}
+		if req == nil {
+			log.Println("Server: Terminating client...")
 			break
 		}
 
 		switch req.PackageData.(type) {
 		case *proto.Package_Accepted:
 			log.Printf("Server: Client %d sent package accepted instead of message\n", id)
-			default:
+			continue
+		case *proto.Package_UsernameRequest:
+			log.Printf("Server: Client %d sent package username request instead of message\n", id)
+			continue
+		default:
 		}
 
 		log.Printf("Server: Got msg '%s' from %d\n", req.GetMsg().Msg, id)

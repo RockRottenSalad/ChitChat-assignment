@@ -3,8 +3,8 @@ package main;
 import (
 	"log"
 	"fmt"
-	"strings"
 	"ChitChat/ui"
+	utils "ChitChat/utils"
 )
 
 type State uint8
@@ -14,7 +14,9 @@ const (
 	Exit
 )
 type Application struct {
-	inputBuffer *strings.Builder
+	cursor uint
+	inputBuffer *utils.FixedArray
+
 	client *Client
 	tui *ui.UI
 
@@ -25,13 +27,14 @@ type Application struct {
 func NewApp() *Application {
 	app := new(Application) 
 	*app = Application {
-		inputBuffer: &strings.Builder{},
+		cursor: 0,
+		inputBuffer: utils.NewFixedArray(64),
 		client: NewClient("127.0.0.1", "8080"),
 		tui: ui.NewUI(),
-		state: InChat,
+		state: PickUsername,
 	}
 
-	app.renderMessages()
+	app.render()
 
 	app.tui.SetCallback(app.handleInput)
 	app.client.SetCallback(app.handleMessage)
@@ -39,20 +42,47 @@ func NewApp() *Application {
 	return app
 }
 
+func (app *Application) handleSubmit() {
+	switch app.state {
+	case PickUsername:
+	case InChat:
+		app.client.Send(app.inputBuffer.String())
+		app.inputBuffer.Reset()
+		app.cursor = 0
+	}
+}
+
 func (app *Application) handleInput(key ui.Key) {
 	if key.IsSpecial()  {
 		switch key.GetSpecial() {
 		case ui.Return:
-		app.client.Send(app.inputBuffer.String())
-		app.inputBuffer.Reset()
-		case ui.Esc:
+			app.handleSubmit()
+
+		case ui.Esc | ui.CtrlC:
 		app.appExit()
+
+		case ui.Backspace:
+			if app.inputBuffer.Len() > 0 {
+				app.inputBuffer.Delete(app.cursor-1)
+				app.cursor--
+			}
+
+		case ui.ArrowLeft:
+			if app.cursor > 0 {
+				app.cursor--
+			}
+		case ui.ArrowRight:
+			if app.cursor < app.inputBuffer.Len() {
+				app.cursor++
+			}
 		default:
 		// TODO: Handle arrow keys
 		}
 	} else {
-		app.inputBuffer.WriteRune(key.GetLetter())
+		app.inputBuffer.Insert(app.cursor, key.GetLetter())
+		app.cursor += 1
 	}
+
 	app.render()
 }
 
@@ -74,6 +104,8 @@ func (app *Application) render() {
 	case InChat:
 	app.renderMessages()
 	}
+
+	app.tui.Render()
 }
 
 func (app *Application) renderMessages() {
@@ -102,11 +134,12 @@ func (app *Application) renderMessages() {
 			ui.Default, ui.Default, ui.Normal)
 	}
 
-	app.tui.SetCursor(uint(len(app.messages) + 1), 0)
+	cursorRow := uint(len(app.messages) + 1)
+	app.tui.SetCursor(cursorRow, 0)
 	app.tui.Write("> ", ui.Blue, ui.Default, ui.Bold)
 	app.tui.Write(app.inputBuffer.String(), ui.Default, ui.Default, ui.Normal)
 
-	app.tui.Render()
+	app.tui.SetCursor(cursorRow, app.cursor)
 }
 
 func (app *Application) renderStartMenu() {
@@ -116,7 +149,8 @@ func (app *Application) renderStartMenu() {
 	app.tui.SetCursor(halfHeight - 1, 0)
 	app.tui.WriteCentered("Enter username:", ui.Default, ui.Default, ui.Bold)
 	app.tui.SetCursor(halfHeight + 1, halfWidth)
-	app.tui.Render()
+	app.tui.Write(app.inputBuffer.String(), ui.Default, ui.Default, ui.Normal)
+	app.tui.SetCursor(halfHeight + 1, halfWidth + app.cursor)
 }
 
 func (app *Application) appExit() {
@@ -128,7 +162,6 @@ func (app *Application) appExit() {
 func (app *Application) ShouldExit() bool {
 	return app.state == Exit
 }
-
 
 func main() {
 	app := NewApp()

@@ -15,6 +15,11 @@ message Accepted {
   uint32 authorID = 1;
 }
 
+// Message which client sends to server to submit username
+message UsernameRequest {
+  string username = 1;
+}
+
 message MetaData {
   uint32 timestamp = 1;
 }
@@ -23,8 +28,9 @@ message Package {
   oneof PackageData {
     Message msg = 1;
     Accepted accepted = 2;
+    UsernameRequest usernameRequest = 3;
   }
-  MetaData metaData = 3;
+  MetaData metaData = 4;
 }
 
 service MessageService {
