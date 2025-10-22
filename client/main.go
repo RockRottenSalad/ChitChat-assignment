@@ -11,26 +11,48 @@ import (
 	"strings"
 	"time"
 
+	"github.com/augustlh/chitchat/logical_clocks"
 	pb "github.com/augustlh/chitchat/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 )
 
-func Login(client pb.ChitChatServiceClient, username string) (string, error) {
+type Client struct {
+	username string
+	token    string
+	client   pb.ChitChatServiceClient
+
+	clock clocks.LamportClock
+}
+
+func Login(client pb.ChitChatServiceClient, username string) (*Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	c := &Client{
+		username: username,
+		token:    "",
+		client:   client,
+		clock:    *clocks.NewLamport(),
+	}
+
+	c.clock.Tick()
+
 	req := &pb.ConnectRequest{
-		Username: username,
+		Timestamp: c.clock.Now(),
+		Username:  username,
 	}
 
 	res, err := client.Connect(ctx, req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return res.GetToken(), nil
+	c.token = res.GetToken()
+	c.clock.Sync(clocks.From(res.Timestamp))
+
+	return c, nil
 }
 
 func main() {
@@ -47,12 +69,12 @@ func main() {
 
 	username := flag.String("username", "", "Username of client")
 	flag.Parse()
-	token, err := Login(client, *username)
+	c, err := Login(client, *username)
 	if err != nil {
 		log.Fatalf("failed to login with username: %v with reason %v", username, err)
 	}
 
-	md := metadata.New(map[string]string{"authorization": token})
+	md := metadata.New(map[string]string{"authorization": c.token})
 
 	ctx := context.Background()
 	ctxWithMetaData := metadata.NewOutgoingContext(ctx, md)
@@ -73,23 +95,24 @@ func main() {
 				log.Fatalf("error reading from stream: %v", err)
 				return
 			}
+			eventTimestamp := c.clock.Sync(clocks.From(in.Timestamp))
 
 			switch event := in.Event.(type) {
 			case *pb.StreamResponse_ChatMessage:
 				if event.ChatMessage.Username == *username {
-					fmt.Printf("\r[you]: %s\n> ", event.ChatMessage.Message)
+					fmt.Printf("\r[%v] [you]: %s\n> ", eventTimestamp, event.ChatMessage.Message)
 				} else {
-					fmt.Printf("\r[%s]: %s\n> ", event.ChatMessage.Username, event.ChatMessage.Message)
+					fmt.Printf("\r[%v] [%s]: %s\n> ", eventTimestamp, event.ChatMessage.Username, event.ChatMessage.Message)
 				}
 
-			case *pb.StreamResponse_Login_:
-				fmt.Printf("\r*** %s joined the chat ***\n> ", event.Login.Username)
+			case *pb.StreamResponse_LoginEvent:
+				fmt.Printf("\r*** [%v] %s joined the chat ***\n> ", eventTimestamp, event.LoginEvent.Username)
 
-			case *pb.StreamResponse_Logout_:
-				fmt.Printf("\r*** %s left the chat ***\n> ", event.Logout.Username)
+			case *pb.StreamResponse_LogoutEvent:
+				fmt.Printf("\r*** [%v] %s left the chat ***\n> ", eventTimestamp, event.LogoutEvent.Username)
 
 			default:
-				fmt.Printf("\r[Unknown event: %T]\n> ", event)
+				fmt.Printf("\r[%v] Unknown event: %T\n> ", eventTimestamp, event)
 			}
 		}
 	}()
@@ -114,8 +137,11 @@ func main() {
 			text = text[:125] + "..."
 		}
 
+		c.clock.Tick()
+
 		err := stream.Send(&pb.StreamRequest{
-			Message: text,
+			Timestamp: c.clock.Now(),
+			Message:   text,
 		})
 		if err != nil {
 			log.Fatalf("Error sending message: %v", err)

@@ -23,7 +23,8 @@ const (
 
 type ConnectRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	Timestamp     uint64                 `protobuf:"varint,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -58,6 +59,13 @@ func (*ConnectRequest) Descriptor() ([]byte, []int) {
 	return file_proto_chitchat_proto_rawDescGZIP(), []int{0}
 }
 
+func (x *ConnectRequest) GetTimestamp() uint64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
+}
+
 func (x *ConnectRequest) GetUsername() string {
 	if x != nil {
 		return x.Username
@@ -67,7 +75,8 @@ func (x *ConnectRequest) GetUsername() string {
 
 type ConnectResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	Timestamp     uint64                 `protobuf:"varint,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Token         string                 `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -102,6 +111,13 @@ func (*ConnectResponse) Descriptor() ([]byte, []int) {
 	return file_proto_chitchat_proto_rawDescGZIP(), []int{1}
 }
 
+func (x *ConnectResponse) GetTimestamp() uint64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
+}
+
 func (x *ConnectResponse) GetToken() string {
 	if x != nil {
 		return x.Token
@@ -111,8 +127,9 @@ func (x *ConnectResponse) GetToken() string {
 
 type StreamRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Timestamp     uint64                 `protobuf:"varint,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Token         string                 `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`
+	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -147,6 +164,13 @@ func (*StreamRequest) Descriptor() ([]byte, []int) {
 	return file_proto_chitchat_proto_rawDescGZIP(), []int{2}
 }
 
+func (x *StreamRequest) GetTimestamp() uint64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
+}
+
 func (x *StreamRequest) GetToken() string {
 	if x != nil {
 		return x.Token
@@ -162,12 +186,13 @@ func (x *StreamRequest) GetMessage() string {
 }
 
 type StreamResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Timestamp uint64                 `protobuf:"varint,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	// Types that are valid to be assigned to Event:
 	//
 	//	*StreamResponse_ChatMessage
-	//	*StreamResponse_Login_
-	//	*StreamResponse_Logout_
+	//	*StreamResponse_LoginEvent
+	//	*StreamResponse_LogoutEvent
 	Event         isStreamResponse_Event `protobuf_oneof:"event"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -203,6 +228,13 @@ func (*StreamResponse) Descriptor() ([]byte, []int) {
 	return file_proto_chitchat_proto_rawDescGZIP(), []int{3}
 }
 
+func (x *StreamResponse) GetTimestamp() uint64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
+}
+
 func (x *StreamResponse) GetEvent() isStreamResponse_Event {
 	if x != nil {
 		return x.Event
@@ -219,19 +251,19 @@ func (x *StreamResponse) GetChatMessage() *StreamResponse_Message {
 	return nil
 }
 
-func (x *StreamResponse) GetLogin() *StreamResponse_Login {
+func (x *StreamResponse) GetLoginEvent() *StreamResponse_Login {
 	if x != nil {
-		if x, ok := x.Event.(*StreamResponse_Login_); ok {
-			return x.Login
+		if x, ok := x.Event.(*StreamResponse_LoginEvent); ok {
+			return x.LoginEvent
 		}
 	}
 	return nil
 }
 
-func (x *StreamResponse) GetLogout() *StreamResponse_Logout {
+func (x *StreamResponse) GetLogoutEvent() *StreamResponse_Logout {
 	if x != nil {
-		if x, ok := x.Event.(*StreamResponse_Logout_); ok {
-			return x.Logout
+		if x, ok := x.Event.(*StreamResponse_LogoutEvent); ok {
+			return x.LogoutEvent
 		}
 	}
 	return nil
@@ -242,22 +274,22 @@ type isStreamResponse_Event interface {
 }
 
 type StreamResponse_ChatMessage struct {
-	ChatMessage *StreamResponse_Message `protobuf:"bytes,1,opt,name=chat_message,json=chatMessage,proto3,oneof"`
+	ChatMessage *StreamResponse_Message `protobuf:"bytes,2,opt,name=chat_message,json=chatMessage,proto3,oneof"`
 }
 
-type StreamResponse_Login_ struct {
-	Login *StreamResponse_Login `protobuf:"bytes,2,opt,name=login,proto3,oneof"`
+type StreamResponse_LoginEvent struct {
+	LoginEvent *StreamResponse_Login `protobuf:"bytes,3,opt,name=login_event,json=loginEvent,proto3,oneof"`
 }
 
-type StreamResponse_Logout_ struct {
-	Logout *StreamResponse_Logout `protobuf:"bytes,3,opt,name=logout,proto3,oneof"`
+type StreamResponse_LogoutEvent struct {
+	LogoutEvent *StreamResponse_Logout `protobuf:"bytes,4,opt,name=logout_event,json=logoutEvent,proto3,oneof"`
 }
 
 func (*StreamResponse_ChatMessage) isStreamResponse_Event() {}
 
-func (*StreamResponse_Login_) isStreamResponse_Event() {}
+func (*StreamResponse_LoginEvent) isStreamResponse_Event() {}
 
-func (*StreamResponse_Logout_) isStreamResponse_Event() {}
+func (*StreamResponse_LogoutEvent) isStreamResponse_Event() {}
 
 type StreamResponse_Message struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -403,18 +435,23 @@ var File_proto_chitchat_proto protoreflect.FileDescriptor
 
 const file_proto_chitchat_proto_rawDesc = "" +
 	"\n" +
-	"\x14proto/chitchat.proto\x12\x05proto\",\n" +
-	"\x0eConnectRequest\x12\x1a\n" +
-	"\busername\x18\x01 \x01(\tR\busername\"'\n" +
-	"\x0fConnectResponse\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\"?\n" +
-	"\rStreamRequest\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\xd6\x02\n" +
-	"\x0eStreamResponse\x12B\n" +
-	"\fchat_message\x18\x01 \x01(\v2\x1d.proto.StreamResponse.MessageH\x00R\vchatMessage\x123\n" +
-	"\x05login\x18\x02 \x01(\v2\x1b.proto.StreamResponse.LoginH\x00R\x05login\x126\n" +
-	"\x06logout\x18\x03 \x01(\v2\x1c.proto.StreamResponse.LogoutH\x00R\x06logout\x1a?\n" +
+	"\x14proto/chitchat.proto\x12\x05proto\"J\n" +
+	"\x0eConnectRequest\x12\x1c\n" +
+	"\ttimestamp\x18\x01 \x01(\x04R\ttimestamp\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\"E\n" +
+	"\x0fConnectResponse\x12\x1c\n" +
+	"\ttimestamp\x18\x01 \x01(\x04R\ttimestamp\x12\x14\n" +
+	"\x05token\x18\x02 \x01(\tR\x05token\"]\n" +
+	"\rStreamRequest\x12\x1c\n" +
+	"\ttimestamp\x18\x01 \x01(\x04R\ttimestamp\x12\x14\n" +
+	"\x05token\x18\x02 \x01(\tR\x05token\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\"\x8a\x03\n" +
+	"\x0eStreamResponse\x12\x1c\n" +
+	"\ttimestamp\x18\x01 \x01(\x04R\ttimestamp\x12B\n" +
+	"\fchat_message\x18\x02 \x01(\v2\x1d.proto.StreamResponse.MessageH\x00R\vchatMessage\x12>\n" +
+	"\vlogin_event\x18\x03 \x01(\v2\x1b.proto.StreamResponse.LoginH\x00R\n" +
+	"loginEvent\x12A\n" +
+	"\flogout_event\x18\x04 \x01(\v2\x1c.proto.StreamResponse.LogoutH\x00R\vlogoutEvent\x1a?\n" +
 	"\aMessage\x12\x1a\n" +
 	"\busername\x18\x01 \x01(\tR\busername\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x1a#\n" +
@@ -451,8 +488,8 @@ var file_proto_chitchat_proto_goTypes = []any{
 }
 var file_proto_chitchat_proto_depIdxs = []int32{
 	4, // 0: proto.StreamResponse.chat_message:type_name -> proto.StreamResponse.Message
-	5, // 1: proto.StreamResponse.login:type_name -> proto.StreamResponse.Login
-	6, // 2: proto.StreamResponse.logout:type_name -> proto.StreamResponse.Logout
+	5, // 1: proto.StreamResponse.login_event:type_name -> proto.StreamResponse.Login
+	6, // 2: proto.StreamResponse.logout_event:type_name -> proto.StreamResponse.Logout
 	0, // 3: proto.ChitChatService.Connect:input_type -> proto.ConnectRequest
 	2, // 4: proto.ChitChatService.Stream:input_type -> proto.StreamRequest
 	1, // 5: proto.ChitChatService.Connect:output_type -> proto.ConnectResponse
@@ -471,8 +508,8 @@ func file_proto_chitchat_proto_init() {
 	}
 	file_proto_chitchat_proto_msgTypes[3].OneofWrappers = []any{
 		(*StreamResponse_ChatMessage)(nil),
-		(*StreamResponse_Login_)(nil),
-		(*StreamResponse_Logout_)(nil),
+		(*StreamResponse_LoginEvent)(nil),
+		(*StreamResponse_LogoutEvent)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

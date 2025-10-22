@@ -9,6 +9,7 @@ import (
 	"net"
 	"sync"
 
+	"github.com/augustlh/chitchat/logical_clocks"
 	pb "github.com/augustlh/chitchat/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -34,44 +35,50 @@ type Client struct {
 type Server struct {
 	pb.UnimplementedChitChatServiceServer
 
+	// The clock implementation is thread safe by default
+	clock clocks.LamportClock
+
 	mu        sync.Mutex
 	usernames map[string]bool
 	clients   map[string]*Client
 }
 
 func (s *Server) Connect(ctx context.Context, req *pb.ConnectRequest) (*pb.ConnectResponse, error) {
-	username := req.GetUsername()
+	clientClock := clocks.From(req.Timestamp)
+	eventTimestamp := s.clock.Sync(clientClock)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.usernames[username] {
+	if s.usernames[req.Username] {
 		err := status.Error(codes.AlreadyExists, "username already in use")
 		return nil, err
 	}
 
 	client := &Client{
-		username: username,
+		username: req.Username,
 		token:    GenerateSecureToken(),
 		stream:   nil,
 	}
 
-	s.usernames[username] = true
+	s.usernames[client.username] = true
 	s.clients[client.token] = client
 
+	s.clock.Tick()
 	response := &pb.StreamResponse{
-		Event: &pb.StreamResponse_Login_{
-			Login: &pb.StreamResponse_Login{
+		Timestamp: s.clock.Now(),
+		Event: &pb.StreamResponse_LoginEvent{
+			LoginEvent: &pb.StreamResponse_Login{
 				Username: client.username,
 			},
 		},
 	}
 
-	log.Printf("user %v connected", client.username)
+	log.Printf("user %v connected at time %v", client.username, eventTimestamp)
 
 	go s.Broadcast(response)
 
-	return &pb.ConnectResponse{Token: client.token}, nil
+	return &pb.ConnectResponse{Timestamp: eventTimestamp, Token: client.token}, nil
 
 }
 
@@ -124,11 +131,14 @@ func (s *Server) Stream(stream pb.ChitChatService_StreamServer) error {
 		if err != nil {
 			return err
 		}
+		eventTimestamp := s.clock.Sync(clocks.From(in.Timestamp))
+
 		message := in.GetMessage()
+		log.Printf("received message %v from user %v at %v", message, client.username, eventTimestamp)
 
-		log.Printf("received message %v from user %v", message, client.username)
-
+		s.clock.Tick()
 		response := &pb.StreamResponse{
+			Timestamp: s.clock.Now(),
 			Event: &pb.StreamResponse_ChatMessage{
 				ChatMessage: &pb.StreamResponse_Message{
 					Username: client.username,
@@ -148,9 +158,11 @@ func (s *Server) DisconnectClient(c *Client) {
 	delete(s.usernames, c.username)
 	delete(s.clients, c.token)
 
+	s.clock.Tick()
 	response := &pb.StreamResponse{
-		Event: &pb.StreamResponse_Logout_{
-			Logout: &pb.StreamResponse_Logout{
+		Timestamp: s.clock.Now(),
+		Event: &pb.StreamResponse_LogoutEvent{
+			LogoutEvent: &pb.StreamResponse_Logout{
 				Username: c.username,
 			},
 		},
@@ -160,51 +172,24 @@ func (s *Server) DisconnectClient(c *Client) {
 	go s.Broadcast(response)
 }
 
-/*func (s *Server) Broadcast(response *pb.StreamResponse) {
-	s.mu.Lock()
-
-	var clientToDisconnect sync.Mutex[[]*Client]
-
-	for _, client := range s.clients {
-		err := go func(c *Client, dcArray []*Client) error {
-			if c.stream == nil {
-				return nil
-			}
-			if err := client.stream.Send(response); err != nil {
-				return err
-			}
-
-			return nil
-		}(client)
-	}
-	s.mu.Unlock()
-
-}*/
-
 func (s *Server) Broadcast(response *pb.StreamResponse) {
 	s.mu.Lock()
-
-	// 1. Create a list to hold clients that fail.
 	var clientsToDisconnect []*Client
 
-	// 2. Loop and try to send.
 	for _, client := range s.clients {
 		if client.stream == nil {
 			continue
 		}
 		if err := client.stream.Send(response); err != nil {
-			// 3. DON'T disconnect here. Just add the client to the list.
 			log.Printf("Send failed, marking client for removal: %s", client.username)
 			clientsToDisconnect = append(clientsToDisconnect, client)
 		}
+		//todo: do we anna tick here s.clock.Tick()
 	}
 
-	// 4. IMPORTANT: Unlock the mutex.
 	s.mu.Unlock()
-
-	// 5. Now that the lock is free, safely disconnect each client.
 	for _, client := range clientsToDisconnect {
-		s.DisconnectClient(client) // This is safe. It will get its own lock.
+		s.DisconnectClient(client)
 	}
 }
 
@@ -221,10 +206,11 @@ func main() {
 	chitchat := &Server{
 		usernames: make(map[string]bool),
 		clients:   make(map[string]*Client),
+		clock:     *clocks.NewLamport(),
 	}
 
 	pb.RegisterChitChatServiceServer(grpcServer, chitchat)
 	grpcServer.Serve(lis)
 }
 
-//todo fix weird go routine spawning
+//todo use channels

@@ -1,0 +1,159 @@
+package vector_clock
+
+import (
+	"fmt"
+	pb "github.com/augustlh/chitchat/proto"
+	"maps"
+	"sync"
+)
+
+// protobuf:
+/*
+message TimestampEntry {
+	string id   = 1;
+	uint64   tick = 2:
+}
+
+message Timestamp {
+	repeated TimestampEntry timestamp = 1;
+}
+*/
+
+type VectorClock struct {
+	id string
+
+	mu    sync.Mutex
+	clock map[string]uint64
+}
+
+func (vc *VectorClock) ToProto() *pb.Timestamp {
+	clock := []*pb.TimestampEntry{}
+
+	vc.mu.Lock()
+	defer vc.mu.Unlock()
+
+	for node, tick := range vc.clock {
+		clock = append(clock, &pb.TimestampEntry{Id: node, Tick: tick})
+	}
+
+	return &pb.Timestamp{
+		Timestamp: clock,
+	}
+}
+
+// This should probably not be here :P
+func FromProto(id string, timestamp *pb.Timestamp) *VectorClock {
+	clock := timestamp.GetTimestamp()
+
+	m := make(map[string]uint64)
+	for _, entry := range clock {
+		m[entry.GetId()] = entry.GetTick()
+	}
+
+	return FromMap(id, m)
+}
+
+func FromMap(id string, clock map[string]uint64) *VectorClock {
+	return &VectorClock{
+		id:    id,
+		clock: clock,
+	}
+}
+
+func New(id string) *VectorClock {
+	return &VectorClock{
+		id:    id,
+		clock: map[string]uint64{id: 0},
+	}
+}
+
+func (vc *VectorClock) Tick() {
+	vc.mu.Lock()
+	defer vc.mu.Unlock()
+
+	vc.clock[vc.id] += 1
+}
+
+func (vc *VectorClock) Sync(other *VectorClock) {
+	vc.Tick()
+
+	vc.mu.Lock()
+
+	// todo: accessing other is not thread asfe atm
+	for id := range other.clock {
+		// vc[i] = max(vc[i], other[i])
+		// Note: If vc.clock[id] doesn't exist, it returns 0.
+		if vc.clock[id] < other.clock[id] {
+			vc.clock[id] = other.clock[id]
+		}
+	}
+
+	vc.mu.Unlock()
+}
+
+func (vc *VectorClock) ToString() string {
+	return fmt.Sprintf("%v", vc.clock)
+}
+
+func (vc *VectorClock) Now() map[string]uint64 {
+	return vc.clock
+}
+
+type Ordering int
+
+const (
+	Less Ordering = iota
+	Equal
+	Greater
+	Concurrent
+)
+
+func (vc *VectorClock) Compare(other *VectorClock) Ordering {
+
+	other.mu.Lock()
+	otherClock := make(map[string]uint64, len(other.clock))
+	maps.Copy(otherClock, other.clock)
+	other.mu.Unlock()
+
+	// If the clocks are malformed, i.e. don;t have same keys, then we can't compare I think?
+	equals := true
+	less := false
+	greater := false
+
+	vc.mu.Lock()
+	defer vc.mu.Unlock()
+
+	for node, val := range vc.clock {
+		if val < otherClock[node] {
+			if greater {
+				greater = false
+				less = false
+				equals = false // redundant, but leave it for "safety"
+				break
+			}
+
+			less = true
+			equals = false
+		} else if val > otherClock[node] {
+			if less {
+				less = false
+				greater = false
+				equals = false // redundant, but leave it for "safety"
+				break
+			}
+			greater = true
+			equals = false
+		}
+	}
+
+	if equals {
+		return Equal
+	} else if less {
+		return Less
+	} else if greater {
+		return Greater
+	} else {
+		return Concurrent
+	}
+
+}
