@@ -2,6 +2,8 @@ package utils
 
 // Is it worth adding implementing a proper rope data structure if our inputs are always short?
 
+import "fmt"
+
 type FixedArray struct {
 	cap uint
 	len uint
@@ -40,9 +42,9 @@ func (arr *FixedArray) Pop() rune {
 }
 
 func (arr *FixedArray) Delete(index uint) rune {
-	Assert(index < arr.len, "Index out of bounds")
+	Assert(index < arr.len, fmt.Sprintf("Index out of bounds: %d with len %d", index, arr.len))
 
-	if index == arr.len {
+	if index == arr.len - 1 {
 		return arr.Pop()
 	}
 
@@ -84,6 +86,7 @@ func (arr *FixedArray) Cap() uint {
 }
 
 func (arr *FixedArray) String() string {
+	if arr.len == 0 { return "" }
 	return string(arr.buffer[0:arr.len])
 }
 

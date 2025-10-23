@@ -64,8 +64,8 @@ func (app *Application) handleInput(key ui.Key) {
 		app.appExit()
 
 		case ui.Backspace:
-			if app.inputBuffer.Len() > 0 {
-				app.inputBuffer.Delete(app.cursor-1)
+			if app.inputBuffer.Len() > 0 && app.cursor > 0 {
+				app.inputBuffer.Delete(app.cursor - 1)
 				app.cursor--
 			}
 
@@ -95,7 +95,9 @@ func (app *Application) handleMessage(msg ReceivedMessage, err error) {
 		app.messages = append(app.messages, msg)
 	}
 
-	app.renderMessages()
+	if app.state == InChat {
+		app.render()
+	}
 }
 
 func (app *Application) render() {
@@ -141,7 +143,7 @@ func (app *Application) renderMessages() {
 	app.tui.Write("> ", ui.Blue, ui.Default, ui.Bold)
 	app.tui.Write(app.inputBuffer.String(), ui.Default, ui.Default, ui.Normal)
 
-	app.tui.SetCursor(cursorRow, app.cursor)
+	app.tui.SetCursor(cursorRow, app.cursor + 2)
 }
 
 func (app *Application) renderStartMenu() {
