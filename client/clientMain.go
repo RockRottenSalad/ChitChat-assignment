@@ -10,6 +10,7 @@ import (
 type State uint8
 const (
 	PickUsername State = iota
+	PickUsernameRejected
 	InChat
 	Exit
 )
@@ -29,7 +30,7 @@ func NewApp() *Application {
 	*app = Application {
 		cursor: 0,
 		inputBuffer: utils.NewFixedArray(64),
-		client: NewClient("127.0.0.1", "8080"),
+		client: nil,
 		tui: ui.NewUI(),
 		state: PickUsername,
 	}
@@ -37,15 +38,32 @@ func NewApp() *Application {
 	app.render()
 
 	app.tui.SetCallback(app.handleInput)
-	app.client.SetCallback(app.handleMessage)
+//	app.client.SetCallback(app.handleMessage)
 
 	return app
 }
 
+func (app *Application) handleUsernameSubmit() {
+	username := app.inputBuffer.String()
+
+	client := NewClient("localhost", "5001", username)
+
+	if client == nil {
+		app.state = PickUsernameRejected
+	} else {
+		app.client = client
+		app.client.SetCallback(app.handleMessage)
+		app.state = InChat
+	}
+}
+
 func (app *Application) handleSubmit() {
+
 	switch app.state {
 	case PickUsername:
-		app.state = InChat
+		app.handleUsernameSubmit()
+	case PickUsernameRejected:
+		app.handleUsernameSubmit()
 	case InChat:
 		app.client.Send(app.inputBuffer.String())
 	}
@@ -60,7 +78,9 @@ func (app *Application) handleInput(key ui.Key) {
 		case ui.Return:
 			app.handleSubmit()
 
-		case ui.Esc | ui.CtrlC:
+		case ui.Esc:
+		app.appExit()
+		case ui.CtrlC:
 		app.appExit()
 
 		case ui.Backspace:
@@ -81,8 +101,10 @@ func (app *Application) handleInput(key ui.Key) {
 		// TODO: Handle arrow keys
 		}
 	} else {
-		app.inputBuffer.Insert(app.cursor, key.GetLetter())
-		app.cursor += 1
+		if app.inputBuffer.Len() < app.inputBuffer.Cap() {
+			app.inputBuffer.Insert(app.cursor, key.GetLetter())
+			app.cursor += 1
+		}
 	}
 
 	app.render()
@@ -104,6 +126,8 @@ func (app *Application) render() {
 	switch app.state {
 	case PickUsername:
 	app.renderStartMenu()
+	case PickUsernameRejected:
+	app.renderStartMenu()
 
 	case InChat:
 	app.renderMessages()
@@ -115,27 +139,33 @@ func (app *Application) render() {
 func (app *Application) renderMessages() {
 	app.tui.SetCursor(0, 0)
 	app.tui.Write("Chit Chat", ui.Red, ui.Default, ui.Underlined)
-	id := app.client.Id()
 
 	for i := range len(app.messages) {
 		app.tui.SetCursor(uint(i + 1), 2)
 
 		var col ui.Color
-		if app.messages[i].author == id {
+		if app.messages[i].author == "You" {
 			col = ui.Blue
 		} else {
 			col = ui.Red
 		}
 
-		// Replace author with actual username in future,
-		// currently auhtor is included in the message
-		app.tui.Write(fmt.Sprintf("Client %d @ %d:",
+		app.tui.Write(fmt.Sprintf("%s @ %d:",
 			app.messages[i].author,
 			app.messages[i].lamportTimestamp),
 			ui.Default, col, ui.Italic)
 
+		switch app.messages[i].event {
+		case LoginEvent:
+		app.tui.Write("Logged in",
+			ui.Default, ui.Default, ui.Normal)
+		case LogoutEvent:
+		app.tui.Write("Logged out",
+			ui.Default, ui.Default, ui.Normal)
+		case MessageEvent:
 		app.tui.Write(app.messages[i].message,
 			ui.Default, ui.Default, ui.Normal)
+		}
 	}
 
 	cursorRow := uint(len(app.messages) + 1)
@@ -152,9 +182,18 @@ func (app *Application) renderStartMenu() {
 
 	app.tui.SetCursor(halfHeight - 1, 0)
 	app.tui.WriteCentered("Enter username:", ui.Default, ui.Default, ui.Bold)
-	app.tui.SetCursor(halfHeight + 1, halfWidth)
-	app.tui.Write(app.inputBuffer.String(), ui.Default, ui.Default, ui.Normal)
-	app.tui.SetCursor(halfHeight + 1, halfWidth + app.cursor)
+
+	if app.state == PickUsernameRejected {
+		app.tui.SetCursor(halfHeight, halfWidth)
+		app.tui.WriteCentered("That username is already taken", ui.White, ui.Red, ui.Normal)
+	}
+
+	str := app.inputBuffer.String()
+
+	inputStartColumn := halfWidth - uint(len(str)/2)
+	app.tui.SetCursor(halfHeight + 1, inputStartColumn)
+	app.tui.Write(str, ui.Default, ui.Default, ui.Normal)
+	app.tui.SetCursor(halfHeight + 1, inputStartColumn + app.cursor)
 }
 
 func (app *Application) appExit() {

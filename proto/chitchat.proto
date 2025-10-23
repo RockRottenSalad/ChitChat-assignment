@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "github.com/augustlh/chitchat/proto";
+
+service ChitChatService {
+  rpc Connect(ConnectRequest) returns (ConnectResponse);
+  rpc Stream(stream StreamRequest) returns (stream StreamResponse);
+}
+
+message ConnectRequest {
+  uint64 timestamp = 1;
+  string username = 2;
+}
+
+message ConnectResponse {
+  uint64 timestamp = 1;
+  string token = 2;
+}
+
+message StreamRequest {
+  uint64 timestamp = 1;
+  string token = 2;
+  string message = 3;
+}
+
+message StreamResponse {
+  uint64 timestamp = 1;
+
+  oneof event {
+    Message chat_message = 2;
+    Login login_event = 3;
+    Logout logout_event = 4;
+  }
+
+  message Message {
+    string username = 1;
+    string message = 2;
+  }
+
+  message Login {
+    string username = 1;
+  }
+
+  message Logout {
+    string username = 1;
+  }
+}

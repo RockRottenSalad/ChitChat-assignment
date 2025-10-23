@@ -1,33 +1,44 @@
 package main;
 
 import (
-	proto "ChitChat/grpc"
+	proto "ChitChat/proto"
 	"context"
 	"log"
 	"io"
-	clocks "ChitChat/clocks"
+	clocks "ChitChat/logical_clocks"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+)
+
+type MessageKind uint8
+
+const (
+	MessageEvent MessageKind = iota
+	LoginEvent 
+	LogoutEvent
+	ErrEvent
 )
 
 type ReceivedMessage struct {
-	author uint32
+	event MessageKind
+	author string
 	message string
-	lamportTimestamp uint32
+	lamportTimestamp uint64
 }
 
 type Client struct {
 	conn *grpc.ClientConn
-	client proto.MessageServiceClient
-	stream grpc.BidiStreamingClient[proto.Package, proto.Package]
-	clock clocks.LamportClock
-	id uint32
+	client proto.ChitChatServiceClient
+	stream grpc.BidiStreamingClient[proto.StreamRequest, proto.StreamResponse]
+	clock *clocks.LamportClock
+	username string
 
 	callback func(ReceivedMessage, error)
 }
 
-func NewClient(ip string, port string) *Client {
+func NewClient(ip string, port string, username string) *Client {
 
 	conn, err := grpc.NewClient(
 		ip + ":" + port,
@@ -37,42 +48,38 @@ func NewClient(ip string, port string) *Client {
 		log.Fatalf("Client: Failed to connect with err {%s}", err.Error());
 	}
 
-	client := proto.NewMessageServiceClient(conn)
+	clock := clocks.NewLamport()
+	clock.Tick()
 
-//	ctx, cf := context.WithTimeout(context.Background(), 100 * time.Millisecond)
-	stream, err := client.Connect(context.Background())
+	client := proto.NewChitChatServiceClient(conn)
 
-
-	if err != nil {
-		log.Fatalf("Client: Failed to establish stream - {%s}", err.Error())
-	}
-
-	log.Printf("A\n")
-	idPackage, err := stream.Recv()
-	log.Printf("B\n")
+	resp, err := client.Connect(context.Background(),
+		&proto.ConnectRequest {Username: username, Timestamp: clock.Now()})
 
 	if err != nil {
-		log.Fatalf("Client: Failed to recv acception package from server - {%s}", err.Error())
+		conn.Close()
+		return nil
 	}
 
+	token := resp.GetToken()
+	serverTimestamp := resp.GetTimestamp()
 
-	var id uint32
-	switch v := idPackage.PackageData.(type) {
-	case *proto.Package_Accepted:
-		id = v.Accepted.AuthorID	
-	case *proto.Package_Msg:
-		log.Fatalln("Client: Got message package before accepted package")
-	default:
-		log.Fatalln("Client: Could not determine type of server's package response")
-	}
+	clock.Sync(clocks.From(serverTimestamp))
+
+	md := metadata.New(map[string]string{"authorization": token})
+
+	ctx := context.Background()
+	ctxWithMetaData := metadata.NewOutgoingContext(ctx, md)
+
+	stream, err := client.Stream(ctxWithMetaData)
 
 	newClient := new(Client)
 	*newClient = Client { 
 		conn: conn,
 		client: client,
 		stream: stream,
-		clock: clocks.NewClock(0),
-		id: id,
+		username: username,
+		clock: clock,
 		callback: func (ReceivedMessage, error) { println("Client: Unhandled callback") },
 	}
 
@@ -82,38 +89,55 @@ func NewClient(ip string, port string) *Client {
 }
 
 func (this *Client) Send(message string) error {
-	this.clock.ProgressTime()
+	this.clock.Tick()
 	err := this.stream.Send(
-		&proto.Package{
-			PackageData: &proto.Package_Msg{Msg: &proto.Message{AuthorID: this.id, Msg: message} }, 
-			MetaData: &proto.MetaData {Timestamp: this.clock.ThisTime()} })
-
+		&proto.StreamRequest{
+			Timestamp: this.clock.Now(),
+			Message: message,
+	})
 
 	return err
 }
 
-func (this *Client) Recv() (ReceivedMessage, error) {
+func (this *Client) recv() (ReceivedMessage, error) {
 	resp, err := this.stream.Recv()
+	this.clock.Tick()
 
 	if err == io.EOF {
 		this.stream.CloseSend()
-		this.clock.ProgressTime()
-		return ReceivedMessage {0, "", this.clock.ThisTime()}, err
+		return ReceivedMessage {ErrEvent, "", "", this.clock.Now()}, err
 	} else if resp == nil {
-		return ReceivedMessage {0, "", this.clock.ThisTime()}, err
+		return ReceivedMessage {ErrEvent, "", "", this.clock.Now()}, err
 	}
 
-	clock := clocks.NewClock(resp.MetaData.Timestamp)
-	this.clock.MergeClocks(&clock)
+	this.clock.Sync(clocks.From(resp.Timestamp))
 
-	// TODO, ensure package type is correct
-	return ReceivedMessage {resp.GetMsg().AuthorID, resp.GetMsg().Msg, this.clock.ThisTime()}, nil
-		
+	msg := ReceivedMessage {};
+	switch ev := resp.Event.(type) {
+	case *proto.StreamResponse_ChatMessage:
+	msg.event = MessageEvent
+	msg.message = ev.ChatMessage.Message
+	msg.author = ev.ChatMessage.Username
+	case *proto.StreamResponse_LoginEvent:
+	msg.event = LoginEvent
+	msg.author = ev.LoginEvent.Username
+	case *proto.StreamResponse_LogoutEvent:
+	msg.event = LogoutEvent
+	msg.author = ev.LogoutEvent.Username
+	}
+
+	msg.lamportTimestamp = this.clock.Now()
+
+	if msg.author == this.Username() {
+		msg.author = "You"
+	}
+
+	return msg, nil
 }
 
 func (this *Client) msgHandler() {
 	for {
-		resp, err := this.Recv()
+		resp, err := this.recv()
 		for this.callback == nil {}
 		this.callback(resp, err)
 	}
@@ -123,8 +147,8 @@ func (this *Client) Close() {
 	this.stream.CloseSend()
 }
 
-func (this *Client) Id() uint32 {
-	return this.id
+func (this *Client) Username() string {
+	return this.username
 }
 
 func (this *Client) SetCallback(callback func(ReceivedMessage, error)) {
