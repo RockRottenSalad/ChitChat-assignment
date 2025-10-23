@@ -124,7 +124,7 @@ func (s *Server) handleNewConnection(client *ClientConnection) bool {
 		return false
 	}
 
-	userReq := req.GetUsernameRequest()
+//	userReq := req.GetUsernameRequest()
 
 	return true
 }
@@ -135,7 +135,7 @@ func (s *Server) Connect(stream proto.MessageService_ConnectServer) error {
 
 	client := ClientConnection{ stream: stream }
 
-	s.handleNewConnection(&client)
+//	s.handleNewConnection(&client)
 
 	id := s.AddClient(&client)
 

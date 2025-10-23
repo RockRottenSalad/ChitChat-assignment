@@ -47,7 +47,9 @@ func NewClient(ip string, port string) *Client {
 		log.Fatalf("Client: Failed to establish stream - {%s}", err.Error())
 	}
 
+	log.Printf("A\n")
 	idPackage, err := stream.Recv()
+	log.Printf("B\n")
 
 	if err != nil {
 		log.Fatalf("Client: Failed to recv acception package from server - {%s}", err.Error())

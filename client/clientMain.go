@@ -45,11 +45,13 @@ func NewApp() *Application {
 func (app *Application) handleSubmit() {
 	switch app.state {
 	case PickUsername:
+		app.state = InChat
 	case InChat:
 		app.client.Send(app.inputBuffer.String())
-		app.inputBuffer.Reset()
-		app.cursor = 0
 	}
+
+	app.inputBuffer.Reset()
+	app.cursor = 0
 }
 
 func (app *Application) handleInput(key ui.Key) {
@@ -164,7 +166,9 @@ func (app *Application) ShouldExit() bool {
 }
 
 func main() {
+	log.Printf("Client did shit")
 	app := NewApp()
+
 
 	for !app.ShouldExit() {}
 
