@@ -1,0 +1,218 @@
+package main
+
+import (
+	"fmt"
+	"log"
+
+	//"os"
+
+	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
+
+	//"golang.org/x/term"
+
+	"github.com/charmbracelet/lipgloss"
+	//	"golang.org/x/text/message"
+
+	pb "github.com/augustlh/chitchat/grpc"
+	"google.golang.org/grpc"
+	// "google.golang.org/grpc/credentials/insecure"
+	// "google.golang.org/grpc/metadata"
+)
+
+//var (
+//	username = flag.String("username", "august", "username used")
+//	message  = flag.String("message", "default", "message to send")
+//)
+
+// Style definitions
+var (
+	// Layout constants
+	totalWidth     = 80
+	totalHeight    = 24
+	sidebarWidth   = 20
+	inputHeight    = 3
+	messagesHeight = totalHeight - inputHeight
+	messagesWidth  = totalWidth - sidebarWidth
+
+	// Style Definitions
+	messagesStyle = lipgloss.NewStyle().
+			Width(messagesWidth).
+			Height(messagesHeight).
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("#EEEEEE")).
+			Padding(0, 1)
+
+	usersStyle = lipgloss.NewStyle().
+			Width(sidebarWidth).
+			Height(messagesHeight).
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("#EEEEEE")).
+			Padding(0, 1)
+
+	inputStyle = lipgloss.NewStyle().
+			Width(totalWidth+2).
+			Height(inputHeight).
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("#EEEEEE")).
+			Padding(0, 1)
+
+	docStyle = lipgloss.NewStyle().Padding(0)
+)
+
+type Model struct {
+	// Message stuff
+	messages         []*pb.StreamResponse
+	messagesViewport viewport.Model
+
+	// Users stuff
+	users         []string
+	usersViewport viewport.Model
+
+	// Message box stuff (input field to send messages)
+	messageBox textinput.Model
+}
+
+func initialModel() Model {
+	messageBox := textinput.New()
+	messageBox.Placeholder = "Please enter message"
+	messageBox.Focus()
+	messageBox.CharLimit = 156
+	messageBox.Width = 20
+
+	return Model{
+		messages:   []*pb.StreamResponse{},
+		messageBox: messageBox,
+	}
+}
+
+func (m Model) Init() tea.Cmd {
+	return nil
+}
+
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c":
+			return m, tea.Quit
+		case "enter":
+			//do nothing for now
+		}
+	}
+
+	m.messageBox, _ = m.messageBox.Update(msg)
+
+	return m, nil
+}
+
+func (m Model) View() string {
+	s := "Messages: \n"
+
+	for _, message := range m.messages {
+		s += fmt.Sprintf("%s: %s\n", message.GetUsername(), message.GetMessage())
+	}
+
+	s += fmt.Sprintf("Message: \n%s\n", m.messageBox.View())
+
+	s += "\nPress ctrl+c to quit.\n"
+	return s
+}
+
+func MessageSender(stream grpc.BidiStreamingClient[pb.StreamRequest, pb.StreamResponse]) {
+	var message string
+	for {
+		fmt.Print("Enter a message: ")
+		fmt.Scan(&message)
+
+		if len(message) == 0 {
+			continue
+		}
+
+		idk := &pb.StreamRequest{
+			Message: message,
+		}
+
+		go func() {
+			if err := stream.Send(idk); err != nil {
+				log.Fatalf("Failed to send message: %v", err)
+			}
+		}()
+	}
+}
+
+func main() {
+	// 3. Render the individual panes with their styles
+	messagesView := messagesStyle.Render()
+	usersView := usersStyle.Render()
+	inputView := inputStyle.Render()
+
+	// 4. Join the panes into the final layout
+	topRow := lipgloss.JoinHorizontal(lipgloss.Top, messagesView, usersView)
+	fullLayout := lipgloss.JoinVertical(lipgloss.Left, topRow, inputView)
+
+	// 5. Return the final, styled string
+	fmt.Println(docStyle.Render(fullLayout))
+
+	//width, height, _ := term.GetSize(int(os.Stdout.Fd()))
+
+	//p := tea.NewProgram(initialModel())
+	//if _, err := p.Run(); err != nil {
+	//	fmt.Printf("Alas, there's been an error: %v", err)
+	//	os.Exit(1)
+	//}
+}
+
+//func main() {
+
+//	flag.Parse()
+//creates connection to server or socket to communicate with
+//	conn, err := grpc.Dial("localhost:5001", grpc.WithTransportCredentials(insecure.NewCredentials()))
+//	if err != nil {
+//		log.Fatalf("fail to dial: %v", err)
+//	}
+//	defer conn.Close()
+//	client := pb.NewChitChatServiceClient(conn)
+//
+//	var username string
+//	var token string
+//	for {
+//		fmt.Print("Enter your name: ")
+//		fmt.Scan(&username)
+//
+//		//attempts to join the chatroom
+//		connRequest := &pb.ConnectRequest{
+//			Username: username,
+//		}
+//
+//		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+//		defer cancel()
+//
+//		res, err := client.Connect(ctx, connRequest)
+//		if err == nil {
+//			token = res.GetToken()
+//			break
+//		}
+//
+//		fmt.Printf("%v", err)
+//	}
+
+// sets metadata for the context
+//	md := metadata.New(map[string]string{"auth": token})
+//	ct := metadata.NewOutgoingContext(context.Background(), md)
+
+//stream, _ := client.Stream(ct)
+//go MessageSender(stream)
+
+//for {
+//	in, err := stream.Recv()
+//	if err == io.EOF {
+//		return
+//	}
+//	if err != nil {
+//		log.Fatalf("Failed to receive a note : %v", err)
+//	}
+//	log.Printf("%s: %s\n", in.GetUsername(), in.GetMessage())
+//}
+//}
