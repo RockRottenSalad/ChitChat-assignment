@@ -4,6 +4,7 @@ import (
 	"log"
 	"fmt"
 	"ChitChat/ui"
+	"os"
 	utils "ChitChat/utils"
 )
 
@@ -48,12 +49,15 @@ func (app *Application) handleUsernameSubmit() {
 
 	client := NewClient("localhost", "5001", username)
 
+
 	if client == nil {
 		app.state = PickUsernameRejected
 	} else {
 		app.client = client
 		app.client.SetCallback(app.handleMessage)
 		app.state = InChat
+
+		app.Log("Client connected to server")
 	}
 }
 
@@ -116,6 +120,8 @@ func (app *Application) handleMessage(msg ReceivedMessage, err error) {
 	}else {
 		app.messages = append(app.messages, msg)
 	}
+
+	app.Log("Got message: " + fmt.Sprintf("%v", msg))
 
 	if app.state == InChat {
 		app.render()
@@ -206,13 +212,21 @@ func (app *Application) ShouldExit() bool {
 	return app.state == Exit
 }
 
-func main() {
-	log.Printf("Client did shit")
-	app := NewApp()
+func (app *Application) Log(msg string) {
+	log.Printf("logical timestamp=\"%v\", component=\"client\", type=\"%v\", username=\"%v\"",
+		app.client.clock.Now(), msg, app.client.Username())
+}
 
+func main() {
+	os.Mkdir("./clientLogs", os.ModePerm)
+	logFile := utils.CreateLogFile("./clientLogs/", "clientLog")
+	fd, _ := os.Create(logFile)
+	log.SetOutput(fd)
+
+	app := NewApp()
 
 	for !app.ShouldExit() {}
 
-	log.Printf("Client: Exiting")
+	app.Log("Client exiting")
 }
 

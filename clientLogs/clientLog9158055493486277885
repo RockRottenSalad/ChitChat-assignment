@@ -1,0 +1,5 @@
+2025/10/23 14:14:28 logical timestamp="6", component="client", type="Client connected to server", username="bob"
+2025/10/23 14:14:30 logical timestamp="10", component="client", type="Got message: {0 You hej 10}", username="bob"
+2025/10/23 14:14:33 logical timestamp="14", component="client", type="Got message: {0 adam i hope logs work 14}", username="bob"
+2025/10/23 14:14:39 logical timestamp="18", component="client", type="Got message: {0 You lets see 18}", username="bob"
+2025/10/23 14:14:47 logical timestamp="18", component="client", type="Client exiting", username="bob"
