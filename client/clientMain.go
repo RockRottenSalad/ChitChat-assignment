@@ -84,8 +84,9 @@ func (app *Application) handleInput(key ui.Key) {
 
 		case ui.Esc:
 		app.appExit()
+
 		case ui.CtrlC:
-		app.appExit()
+		return
 
 		case ui.Backspace:
 			if app.inputBuffer.Len() > 0 && app.cursor > 0 {
@@ -110,7 +111,6 @@ func (app *Application) handleInput(key ui.Key) {
 			app.cursor += 1
 		}
 	}
-
 	app.render()
 }
 
@@ -203,9 +203,9 @@ func (app *Application) renderStartMenu() {
 }
 
 func (app *Application) appExit() {
-	app.state = Exit
 	app.tui.TerminateUI()
 	app.client.Close()
+	app.state = Exit
 }
 
 func (app *Application) ShouldExit() bool {

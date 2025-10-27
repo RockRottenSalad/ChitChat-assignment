@@ -11,7 +11,7 @@ import (
 	"sync"
 
 	clocks "ChitChat/logical_clocks"
-	pb "ChitChat/proto"
+	pb "ChitChat/grpc"
 	"ChitChat/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

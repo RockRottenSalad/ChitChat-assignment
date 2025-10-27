@@ -65,6 +65,8 @@ func (ui *UI) charReader() {
 //		char, _, _ := reader.ReadRune()
 		n, _ := os.Stdin.Read(buf[:])
 
+		log.Printf("KEY PRESS: %v - %c", buf, rune(buf[0]))
+
 //		fmt.Printf("PRESS: %v\n", buf)
 
 		if n == 1 {

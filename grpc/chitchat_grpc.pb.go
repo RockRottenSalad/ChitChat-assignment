@@ -4,7 +4,7 @@
 // - protoc             v6.32.1
 // source: proto/chitchat.proto
 
-package proto
+package grpc
 
 import (
 	context "context"

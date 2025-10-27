@@ -12,7 +12,7 @@ package main
 //	"time"
 //
 //	"github.com/augustlh/chitchat/logical_clocks"
-//	pb "github.com/augustlh/chitchat/proto"
+//	pb "github.com/augustlh/chitchat/grpc"
 //	"google.golang.org/grpc"
 //	"google.golang.org/grpc/credentials/insecure"
 //	"google.golang.org/grpc/metadata"

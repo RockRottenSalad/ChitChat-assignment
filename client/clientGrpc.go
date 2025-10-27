@@ -1,7 +1,7 @@
 package main;
 
 import (
-	proto "ChitChat/proto"
+	proto "ChitChat/grpc"
 	"context"
 	"log"
 	"io"
