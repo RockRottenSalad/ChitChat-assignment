@@ -5,8 +5,8 @@ package utils
 import "fmt"
 
 type FixedArray struct {
-	cap uint
-	len uint
+	cap    uint
+	len    uint
 	buffer []rune
 }
 
@@ -14,7 +14,7 @@ func NewFixedArray(capacity uint) *FixedArray {
 
 	arr := new(FixedArray)
 
-	*arr = FixedArray { cap: capacity, len: 0, buffer: make([]rune, capacity) }
+	*arr = FixedArray{cap: capacity, len: 0, buffer: make([]rune, capacity)}
 
 	return arr
 }
@@ -27,7 +27,7 @@ func (arr *FixedArray) Append(ch rune) {
 
 func (arr *FixedArray) Last() rune {
 	Assert(arr.len > 0, "Array is empty")
-	return arr.buffer[arr.len]
+	return arr.buffer[arr.len-1]
 }
 
 func (arr *FixedArray) First() rune {
@@ -44,13 +44,13 @@ func (arr *FixedArray) Pop() rune {
 func (arr *FixedArray) Delete(index uint) rune {
 	Assert(index < arr.len, fmt.Sprintf("Index out of bounds: %d with len %d", index, arr.len))
 
-	if index == arr.len - 1 {
+	if index == arr.len-1 {
 		return arr.Pop()
 	}
 
 	ret := arr.buffer[index]
-	for i := index; i < arr.len - 1; i++ {
-		arr.buffer[i] = arr.buffer[i + 1]
+	for i := index; i < arr.len-1; i++ {
+		arr.buffer[i] = arr.buffer[i+1]
 	}
 	arr.len--
 
@@ -67,7 +67,7 @@ func (arr *FixedArray) Insert(index uint, ch rune) {
 	}
 
 	for i := arr.len; i > index; i-- {
-		arr.buffer[i] = arr.buffer[i - 1]
+		arr.buffer[i] = arr.buffer[i-1]
 	}
 	arr.buffer[index] = ch
 	arr.len++
@@ -86,7 +86,8 @@ func (arr *FixedArray) Cap() uint {
 }
 
 func (arr *FixedArray) String() string {
-	if arr.len == 0 { return "" }
+	if arr.len == 0 {
+		return ""
+	}
 	return string(arr.buffer[0:arr.len])
 }
-

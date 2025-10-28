@@ -1,11 +1,11 @@
-package main;
+package main
 
 import (
 	proto "ChitChat/grpc"
-	"context"
-	"log"
-	"io"
 	clocks "ChitChat/logical_clocks"
+	"context"
+	"io"
+	"log"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -16,36 +16,36 @@ type MessageKind uint8
 
 const (
 	MessageEvent MessageKind = iota
-	LoginEvent 
+	LoginEvent
 	LogoutEvent
 	ErrEvent
 )
 
 type ReceivedMessage struct {
-	event MessageKind
-	author string
-	message string
+	event            MessageKind
+	author           string
+	message          string
 	lamportTimestamp uint64
 }
 
 type Client struct {
-	conn *grpc.ClientConn
-	client proto.ChitChatServiceClient
-	stream grpc.BidiStreamingClient[proto.StreamRequest, proto.StreamResponse]
-	clock *clocks.LamportClock
+	conn     *grpc.ClientConn
+	client   proto.ChitChatServiceClient
+	stream   grpc.BidiStreamingClient[proto.StreamRequest, proto.StreamResponse]
+	clock    *clocks.LamportClock
 	username string
 
-	callback func(ReceivedMessage, error)
+	messageCh chan ReceivedMessage
 }
 
-func NewClient(ip string, port string, username string) *Client {
+func NewClient(ip string, port string, username string, enableCallback bool) *Client {
 
 	conn, err := grpc.NewClient(
-		ip + ":" + port,
-		grpc.WithTransportCredentials(insecure.NewCredentials()));
+		ip+":"+port,
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	if err != nil {
-		log.Fatalf("Client: Failed to connect with err {%s}", err.Error());
+		log.Fatalf("Client: Failed to connect with err {%s}", err.Error())
 	}
 
 	clock := clocks.NewLamport()
@@ -54,7 +54,7 @@ func NewClient(ip string, port string, username string) *Client {
 	client := proto.NewChitChatServiceClient(conn)
 
 	resp, err := client.Connect(context.Background(),
-		&proto.ConnectRequest {Username: username, Timestamp: clock.Now()})
+		&proto.ConnectRequest{Username: username, Timestamp: clock.Now()})
 
 	if err != nil {
 		conn.Close()
@@ -74,16 +74,18 @@ func NewClient(ip string, port string, username string) *Client {
 	stream, err := client.Stream(ctxWithMetaData)
 
 	newClient := new(Client)
-	*newClient = Client { 
-		conn: conn,
-		client: client,
-		stream: stream,
+	*newClient = Client{
+		conn:     conn,
+		client:   client,
+		stream:   stream,
 		username: username,
-		clock: clock,
-		callback: func (ReceivedMessage, error) { println("Client: Unhandled callback") },
+		clock:    clock,
+		messageCh: nil,
 	}
 
-	go newClient.msgHandler()
+	if enableCallback{
+		go newClient.msgHandler()
+	}
 
 	return newClient
 }
@@ -93,8 +95,8 @@ func (this *Client) Send(message string) error {
 	err := this.stream.Send(
 		&proto.StreamRequest{
 			Timestamp: this.clock.Now(),
-			Message: message,
-	})
+			Message:   message,
+		})
 
 	return err
 }
@@ -102,7 +104,7 @@ func (this *Client) Send(message string) error {
 func (this *Client) recv() (ReceivedMessage, error) {
 	resp, err := this.stream.Recv()
 	this.clock.Tick()
-
+	
 	if err == io.EOF {
 		this.stream.CloseSend()
 		return ReceivedMessage {ErrEvent, "", "", this.clock.Now()}, err
@@ -112,18 +114,18 @@ func (this *Client) recv() (ReceivedMessage, error) {
 
 	this.clock.Sync(clocks.From(resp.Timestamp))
 
-	msg := ReceivedMessage {};
+	msg := ReceivedMessage{}
 	switch ev := resp.Event.(type) {
 	case *proto.StreamResponse_ChatMessage:
-	msg.event = MessageEvent
-	msg.message = ev.ChatMessage.Message
-	msg.author = ev.ChatMessage.Username
+		msg.event = MessageEvent
+		msg.message = ev.ChatMessage.Message
+		msg.author = ev.ChatMessage.Username
 	case *proto.StreamResponse_LoginEvent:
-	msg.event = LoginEvent
-	msg.author = ev.LoginEvent.Username
+		msg.event = LoginEvent
+		msg.author = ev.LoginEvent.Username
 	case *proto.StreamResponse_LogoutEvent:
-	msg.event = LogoutEvent
-	msg.author = ev.LogoutEvent.Username
+		msg.event = LogoutEvent
+		msg.author = ev.LogoutEvent.Username
 	}
 
 	msg.lamportTimestamp = this.clock.Now()
@@ -137,9 +139,10 @@ func (this *Client) recv() (ReceivedMessage, error) {
 
 func (this *Client) msgHandler() {
 	for {
-		resp, err := this.recv()
-		for this.callback == nil {}
-		this.callback(resp, err)
+		resp, _ := this.recv()
+		for this.messageCh == nil {
+		}
+		this.messageCh <- resp
 	}
 }
 
@@ -151,7 +154,6 @@ func (this *Client) Username() string {
 	return this.username
 }
 
-func (this *Client) SetCallback(callback func(ReceivedMessage, error)) {
-	this.callback = callback
+func (this *Client) SetMessageChannel(ch chan ReceivedMessage) {
+	this.messageCh = ch
 }
-
