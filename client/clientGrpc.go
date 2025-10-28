@@ -38,7 +38,7 @@ type Client struct {
 	callback func(ReceivedMessage, error)
 }
 
-func NewClient(ip string, port string, username string) *Client {
+func NewClient(ip string, port string, username string, enableCallback bool) *Client {
 
 	conn, err := grpc.NewClient(
 		ip+":"+port,
@@ -83,7 +83,9 @@ func NewClient(ip string, port string, username string) *Client {
 		callback: func(ReceivedMessage, error) { println("Client: Unhandled callback") },
 	}
 
-	go newClient.msgHandler()
+	if enableCallback{
+		go newClient.msgHandler()
+	}
 
 	return newClient
 }

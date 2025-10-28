@@ -83,7 +83,7 @@ func (ui *UI) charReader() {
 				ui.callback(Key{isSpecial: false, letter: rune(buf[0]) })
 			case buf[0] >= 'a' && buf[0] <= 'z':
 				ui.callback(Key{isSpecial: false, letter: rune(buf[0]) })
-			case buf[0] == ' ':
+			case buf[0] == ' ' || buf[0] == ',' || buf[0] == '.' || buf[0] == '\'':
 				ui.callback(Key{isSpecial: false, letter: rune(buf[0]) })
 			}
 		}else if n == 3 {
