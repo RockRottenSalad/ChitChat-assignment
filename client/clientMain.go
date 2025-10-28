@@ -1,45 +1,47 @@
-package main;
+package main
 
 import (
-	"log"
-	"fmt"
 	"ChitChat/ui"
-	"os"
 	utils "ChitChat/utils"
+	"fmt"
+	"log"
+	"os"
 )
 
 type State uint8
+
 const (
 	PickUsername State = iota
 	PickUsernameRejected
 	InChat
 	Exit
 )
+
 type Application struct {
-	cursor uint
+	cursor      uint
 	inputBuffer *utils.FixedArray
 
 	client *Client
-	tui *ui.UI
+	tui    *ui.UI
 
 	messages []ReceivedMessage
-	state State
+	state    State
 }
 
 func NewApp() *Application {
-	app := new(Application) 
-	*app = Application {
-		cursor: 0,
+	app := new(Application)
+	*app = Application{
+		cursor:      0,
 		inputBuffer: utils.NewFixedArray(64),
-		client: nil,
-		tui: ui.NewUI(),
-		state: PickUsername,
+		client:      nil,
+		tui:         ui.NewUI(),
+		state:       PickUsername,
 	}
 
 	app.render()
 
 	app.tui.SetCallback(app.handleInput)
-//	app.client.SetCallback(app.handleMessage)
+	//	app.client.SetCallback(app.handleMessage)
 
 	return app
 }
@@ -48,7 +50,6 @@ func (app *Application) handleUsernameSubmit() {
 	username := app.inputBuffer.String()
 
 	client := NewClient("localhost", "5001", username)
-
 
 	if client == nil {
 		app.state = PickUsernameRejected
@@ -77,16 +78,16 @@ func (app *Application) handleSubmit() {
 }
 
 func (app *Application) handleInput(key ui.Key) {
-	if key.IsSpecial()  {
+	if key.IsSpecial() {
 		switch key.GetSpecial() {
 		case ui.Return:
 			app.handleSubmit()
 
 		case ui.Esc:
-		app.appExit()
+			app.appExit()
 
 		case ui.CtrlC:
-		return
+			return
 
 		case ui.Backspace:
 			if app.inputBuffer.Len() > 0 && app.cursor > 0 {
@@ -103,7 +104,7 @@ func (app *Application) handleInput(key ui.Key) {
 				app.cursor++
 			}
 		default:
-		// TODO: Handle arrow keys
+			// TODO: Handle arrow keys
 		}
 	} else {
 		if app.inputBuffer.Len() < app.inputBuffer.Cap() {
@@ -117,7 +118,7 @@ func (app *Application) handleInput(key ui.Key) {
 func (app *Application) handleMessage(msg ReceivedMessage, err error) {
 	if err != nil {
 		log.Fatalln("TODO: Don't panic")
-	}else {
+	} else {
 		app.messages = append(app.messages, msg)
 	}
 
@@ -131,12 +132,12 @@ func (app *Application) handleMessage(msg ReceivedMessage, err error) {
 func (app *Application) render() {
 	switch app.state {
 	case PickUsername:
-	app.renderStartMenu()
+		app.renderStartMenu()
 	case PickUsernameRejected:
-	app.renderStartMenu()
+		app.renderStartMenu()
 
 	case InChat:
-	app.renderMessages()
+		app.renderMessages()
 	}
 
 	app.tui.Render()
@@ -147,7 +148,7 @@ func (app *Application) renderMessages() {
 	app.tui.Write("Chit Chat", ui.Red, ui.Default, ui.Underlined)
 
 	for i := range len(app.messages) {
-		app.tui.SetCursor(uint(i + 1), 2)
+		app.tui.SetCursor(uint(i+1), 2)
 
 		var col ui.Color
 		if app.messages[i].author == "You" {
@@ -156,21 +157,15 @@ func (app *Application) renderMessages() {
 			col = ui.Red
 		}
 
-		app.tui.Write(fmt.Sprintf("%s @ %d:",
-			app.messages[i].author,
-			app.messages[i].lamportTimestamp),
-			ui.Default, col, ui.Italic)
-
 		switch app.messages[i].event {
 		case LoginEvent:
-		app.tui.Write("Logged in",
-			ui.Default, ui.Default, ui.Normal)
+			app.tui.Write(fmt.Sprintf("%s @ %d connected to the chat", app.messages[i].author, app.messages[i].lamportTimestamp), ui.Default, ui.Default, ui.Normal)
 		case LogoutEvent:
-		app.tui.Write("Logged out",
-			ui.Default, ui.Default, ui.Normal)
+			app.tui.Write(fmt.Sprintf("%s @ %d disconnected from the chat", app.messages[i].author, app.messages[i].lamportTimestamp), ui.Default, ui.Default, ui.Normal)
 		case MessageEvent:
-		app.tui.Write(app.messages[i].message,
-			ui.Default, ui.Default, ui.Normal)
+			app.tui.Write(fmt.Sprintf("%s @ %d: ", app.messages[i].author, app.messages[i].lamportTimestamp), ui.Default, col, ui.Italic)
+			app.tui.Write(app.messages[i].message,
+				ui.Default, ui.Default, ui.Normal)
 		}
 	}
 
@@ -179,14 +174,14 @@ func (app *Application) renderMessages() {
 	app.tui.Write("> ", ui.Blue, ui.Default, ui.Bold)
 	app.tui.Write(app.inputBuffer.String(), ui.Default, ui.Default, ui.Normal)
 
-	app.tui.SetCursor(cursorRow, app.cursor + 2)
+	app.tui.SetCursor(cursorRow, app.cursor+2)
 }
 
 func (app *Application) renderStartMenu() {
 	halfHeight := app.tui.GetUIHeight() / 2
 	halfWidth := app.tui.GetUIWidth() / 2
 
-	app.tui.SetCursor(halfHeight - 1, 0)
+	app.tui.SetCursor(halfHeight-1, 0)
 	app.tui.WriteCentered("Enter username:", ui.Default, ui.Default, ui.Bold)
 
 	if app.state == PickUsernameRejected {
@@ -197,9 +192,9 @@ func (app *Application) renderStartMenu() {
 	str := app.inputBuffer.String()
 
 	inputStartColumn := halfWidth - uint(len(str)/2)
-	app.tui.SetCursor(halfHeight + 1, inputStartColumn)
+	app.tui.SetCursor(halfHeight+1, inputStartColumn)
 	app.tui.Write(str, ui.Default, ui.Default, ui.Normal)
-	app.tui.SetCursor(halfHeight + 1, inputStartColumn + app.cursor)
+	app.tui.SetCursor(halfHeight+1, inputStartColumn+app.cursor)
 }
 
 func (app *Application) appExit() {
@@ -225,8 +220,8 @@ func main() {
 
 	app := NewApp()
 
-	for !app.ShouldExit() {}
+	for !app.ShouldExit() {
+	}
 
 	app.Log("Client exiting")
 }
-
