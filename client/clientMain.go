@@ -198,7 +198,9 @@ func (app *Application) renderStartMenu() {
 }
 
 func (app *Application) appExit() {
-	app.client.Close()
+	if app.client != nil {
+		app.client.Close()
+	}
 	app.tui.TerminateUI()
 	app.state = Exit
 }
