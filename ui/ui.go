@@ -66,6 +66,7 @@ func (ui *UI) charReader() {
 		n, _ := os.Stdin.Read(buf[:])
 
 		log.Printf("KEY PRESS: %v - %c", buf, rune(buf[0]))
+		log.Printf("æ: %v", []byte("æ"))
 
 //		fmt.Printf("PRESS: %v\n", buf)
 
@@ -79,14 +80,19 @@ func (ui *UI) charReader() {
 				ui.callback(Key{isSpecial: true, special: Esc })
 			case buf[0] == '\n' || buf[0] == '\r':
 				ui.callback(Key{isSpecial: true, special: Return })
-			case buf[0] >= 'A' && buf[0] <= 'Z':
-				ui.callback(Key{isSpecial: false, letter: rune(buf[0]) })
-			case buf[0] >= 'a' && buf[0] <= 'z':
-				ui.callback(Key{isSpecial: false, letter: rune(buf[0]) })
-			case buf[0] == ' ' || buf[0] == ',' || buf[0] == '.' || buf[0] == '\'':
+			default:
 				ui.callback(Key{isSpecial: false, letter: rune(buf[0]) })
 			}
-		}else if n == 3 {
+		} else if n == 2 {
+			// Exclude 0
+			utf := string(buf[:2])
+			// find a better way to extract a specific rune
+			var ch rune
+			for _, r := range utf {
+				ch = r
+			}
+			ui.callback(Key{isSpecial: false, letter: ch })
+		} else /* n == 3 */  {
 			if buf[0] == 27 && buf[1] == 91 {
 				switch(buf[2]) {
 				case 65:
