@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 )
 
 type State uint8
@@ -211,12 +210,11 @@ func (app *Application) ShouldExit() bool {
 }
 
 func (app *Application) Log(msg string) {
-	var timestamp uint64 = 0
-
 	if app.client != nil {
-		timestamp = app.client.clock.Now()
+		log.Printf("logical timestamp=\"%v\", component=\"client\", type=\"%v\", username=\"%v\"", app.client.clock.Now(), msg, app.client.Username())
+	} else {
+		log.Printf("logical timestamp=\"0\", component=\"client\", type=\"%v\"", msg)
 	}
-	log.Printf("logical timestamp=\"%v\", component=\"client\", type=\"%v\", username=\"%v\"", timestamp, msg, app.client.Username())
 }
 
 func main() {
