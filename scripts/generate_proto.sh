@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 # Assuming script is placed inside a directory whose parent is the project root
-PROJECT_ROOT=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd | sed -r "s./[^/]+$..")
+PROJECT_ROOT=$( dirname $(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd) )
 
-PROTO_DIR=proto
+PROTO_DIR=grpc
 
 protoc -I ${PROJECT_ROOT} \
     --go_out=. --go_opt=paths=source_relative \
