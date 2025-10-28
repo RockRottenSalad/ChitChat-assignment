@@ -25,6 +25,9 @@ type Application struct {
 
 	messages []ReceivedMessage
 	state    State
+
+	keyCh chan ui.Key
+	msgCh chan ReceivedMessage
 }
 
 func NewApp() *Application {
@@ -35,12 +38,14 @@ func NewApp() *Application {
 		client:      nil,
 		tui:         ui.NewUI(),
 		state:       PickUsername,
+		keyCh: 		 make(chan ui.Key),
+		msgCh: 		 make(chan ReceivedMessage),
 	}
 
 	app.render()
 
-	app.tui.SetCallback(app.handleInput)
-	//	app.client.SetCallback(app.handleMessage)
+	app.tui.SetKeyChannel(app.keyCh)
+	go app.eventHandler()
 
 	return app
 }
@@ -55,7 +60,7 @@ func (app *Application) handleUsernameSubmit() {
 		app.state = PickUsernameRejected
 	} else {
 		app.client = client
-		app.client.SetCallback(app.handleMessage)
+		app.client.SetMessageChannel(app.msgCh)
 		app.state = InChat
 
 		app.Log("Client connected to server")
@@ -115,17 +120,24 @@ func (app *Application) handleInput(key ui.Key) {
 	app.render()
 }
 
-func (app *Application) handleMessage(msg ReceivedMessage, err error) {
-	if err != nil {
-		log.Fatalln("TODO: Don't panic")
-	} else {
-		app.messages = append(app.messages, msg)
-	}
+func (app *Application) handleMessage(msg ReceivedMessage) {
+	app.messages = append(app.messages, msg)
 
 	app.Log("Got message: " + fmt.Sprintf("%v", msg))
 
 	if app.state == InChat {
 		app.render()
+	}
+}
+
+func (app *Application) eventHandler() {
+	for {
+		select {
+		case keyEvent := <-app.keyCh:
+			app.handleInput(keyEvent)
+		case msgEvent := <-app.msgCh:
+			app.handleMessage(msgEvent)
+		}
 	}
 }
 

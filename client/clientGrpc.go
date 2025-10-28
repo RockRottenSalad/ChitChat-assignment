@@ -35,7 +35,7 @@ type Client struct {
 	clock    *clocks.LamportClock
 	username string
 
-	callback func(ReceivedMessage, error)
+	messageCh chan ReceivedMessage
 }
 
 func NewClient(ip string, port string, username string, enableCallback bool) *Client {
@@ -80,7 +80,7 @@ func NewClient(ip string, port string, username string, enableCallback bool) *Cl
 		stream:   stream,
 		username: username,
 		clock:    clock,
-		callback: func(ReceivedMessage, error) { println("Client: Unhandled callback") },
+		messageCh: nil,
 	}
 
 	if enableCallback{
@@ -139,10 +139,10 @@ func (this *Client) recv() (ReceivedMessage, error) {
 
 func (this *Client) msgHandler() {
 	for {
-		resp, err := this.recv()
-		for this.callback == nil {
+		resp, _ := this.recv()
+		for this.messageCh == nil {
 		}
-		this.callback(resp, err)
+		this.messageCh <- resp
 	}
 }
 
@@ -154,6 +154,6 @@ func (this *Client) Username() string {
 	return this.username
 }
 
-func (this *Client) SetCallback(callback func(ReceivedMessage, error)) {
-	this.callback = callback
+func (this *Client) SetMessageChannel(ch chan ReceivedMessage) {
+	this.messageCh = ch
 }

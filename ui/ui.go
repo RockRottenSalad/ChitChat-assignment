@@ -20,7 +20,8 @@ type UI struct {
 	prevState *term.State
 
 	buffer *strings.Builder
-	callback func(Key)
+
+	keyCh chan Key
 }
 
 type Color byte
@@ -65,23 +66,24 @@ func (ui *UI) charReader() {
 //		char, _, _ := reader.ReadRune()
 		n, _ := os.Stdin.Read(buf[:])
 
-		log.Printf("KEY PRESS: %v - %c", buf, rune(buf[0]))
-		log.Printf("æ: %v", []byte("æ"))
-
-//		fmt.Printf("PRESS: %v\n", buf)
+//		log.Printf("KEY PRESS: %v - %c", buf, rune(buf[0]))
+		if ui.keyCh == nil {
+			log.Println("Warning: Unhandled key event")
+			continue
+		}
 
 		if n == 1 {
 			switch {
 			case buf[0] == 3:
-				ui.callback(Key{isSpecial: true, special: CtrlC })
+				ui.keyCh <- Key{isSpecial: true, special: CtrlC }
 			case buf[0] == 127:
-				ui.callback(Key{isSpecial: true, special: Backspace })
+				ui.keyCh <- Key{isSpecial: true, special: Backspace }
 			case buf[0] == 27:
-				ui.callback(Key{isSpecial: true, special: Esc })
+				ui.keyCh <- Key{isSpecial: true, special: Esc }
 			case buf[0] == '\n' || buf[0] == '\r':
-				ui.callback(Key{isSpecial: true, special: Return })
+				ui.keyCh <- Key{isSpecial: true, special: Return }
 			default:
-				ui.callback(Key{isSpecial: false, letter: rune(buf[0]) })
+				ui.keyCh <- Key{isSpecial: false, letter: rune(buf[0]) }
 			}
 		} else if n == 2 {
 			// Exclude 0
@@ -91,18 +93,18 @@ func (ui *UI) charReader() {
 			for _, r := range utf {
 				ch = r
 			}
-			ui.callback(Key{isSpecial: false, letter: ch })
+			ui.keyCh <- Key{isSpecial: false, letter: ch }
 		} else /* n == 3 */  {
 			if buf[0] == 27 && buf[1] == 91 {
 				switch(buf[2]) {
 				case 65:
-					ui.callback(Key{isSpecial: true, special: ArrowUp })
+					ui.keyCh <- Key{isSpecial: true, special: ArrowUp }
 				case 66:
-					ui.callback(Key{isSpecial: true, special: ArrowDown })
+					ui.keyCh <- Key{isSpecial: true, special: ArrowDown }
 				case 67:
-					ui.callback(Key{isSpecial: true, special: ArrowRight })
+					ui.keyCh <- Key{isSpecial: true, special: ArrowRight }
 				case 68:
-					ui.callback(Key{isSpecial: true, special: ArrowLeft })
+					ui.keyCh <- Key{isSpecial: true, special: ArrowLeft }
 				}
 			}
 		}
@@ -121,7 +123,8 @@ func NewUI() *UI {
 		height: uint(height), width: uint(width),
 		buffer: &strings.Builder{},
 		prevState: prevState,
-		callback: func(ch Key) {fmt.Printf("Unhandled callback: '%q'\n", ch)}}
+		keyCh: nil,
+	}
 	ui.buffer.Reset()
 	ui.SetCursor(0, 0)
 	ui.clear()
@@ -286,8 +289,8 @@ func (ui *UI) Render() {
 	ui.updateTerminalDimensions()
 }
 
-func (ui *UI) SetCallback(cb func(Key)) {
-	ui.callback = cb
+func (ui *UI) SetKeyChannel(ch chan Key) {
+	ui.keyCh = ch
 }
 
 
