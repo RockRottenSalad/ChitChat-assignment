@@ -144,10 +144,10 @@ func (s *Server) Stream(stream pb.ChitChatService_StreamServer) error {
 
 		message := in.GetMessage()
 
-        if len(message) > 128 {
-            utils.LogAndPrint("logical timestamp=\"%v\", component=\"server\", type=\"message too long\", username=\"%v\"", eventTimestamp, client.username)
-            continue
-        }
+		if len(message) > 128 {
+			utils.LogAndPrint("logical timestamp=\"%v\", component=\"server\", type=\"message too long\", username=\"%v\"", eventTimestamp, client.username)
+			continue
+		}
 
 		utils.LogAndPrint("logical timestamp=\"%v\", component=\"server\", type=\"received message\", username=\"%v\", message=\"%v\"", eventTimestamp, client.username, message)
 		s.clock.Tick()
@@ -189,24 +189,29 @@ func (s *Server) DisconnectClient(c *Client) {
 }
 
 func (s *Server) Broadcast(response *pb.StreamResponse) {
+	utils.LogAndPrint("logical timestamp=\"%v\", component=\"server\", type=\"broadcast\", message=\"%v\"", response.Timestamp, response)
 	s.mu.Lock()
+	var clientsCopy []*Client
 	var clientsToDisconnect []*Client
 
-	utils.LogAndPrint("logical timestamp=\"%v\", component=\"server\", type=\"broadcast\", message=\"%v\"", response.Timestamp, response)
-	for _, client := range s.clients {
-		if client.stream == nil {
+	for _, c := range s.clients {
+		if c.stream == nil {
 			continue
 		}
-		// Should probably tick clock
+		clientsCopy = append(clientsCopy, c)
+	}
+	s.mu.Unlock()
+
+	// While the send operation is blocking, our lock on the server is released making the operation non blocking
+	// We have decided against spawning a goroutine for each send, because it would cause problems with a lot of clients
+	for _, client := range clientsCopy {
 		if err := client.stream.Send(response); err != nil {
 			utils.LogAndPrint("Broadcast of %v to client %s failed, marking client for removal", response, client.username)
 			clientsToDisconnect = append(clientsToDisconnect, client)
 		}
 	}
-
 	s.clock.Tick()
 
-	s.mu.Unlock()
 	for _, client := range clientsToDisconnect {
 		s.DisconnectClient(client)
 	}
