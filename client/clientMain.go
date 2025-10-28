@@ -32,7 +32,7 @@ func NewApp() *Application {
 	app := new(Application)
 	*app = Application{
 		cursor:      0,
-		inputBuffer: utils.NewFixedArray(64),
+		inputBuffer: utils.NewFixedArray(128),
 		client:      nil,
 		tui:         ui.NewUI(),
 		state:       PickUsername,
@@ -87,7 +87,7 @@ func (app *Application) handleInput(key ui.Key) {
 			app.appExit()
 
 		case ui.CtrlC:
-			return
+			app.appExit()
 
 		case ui.Backspace:
 			if app.inputBuffer.Len() > 0 && app.cursor > 0 {
@@ -198,8 +198,8 @@ func (app *Application) renderStartMenu() {
 }
 
 func (app *Application) appExit() {
-	app.tui.TerminateUI()
 	app.client.Close()
+	app.tui.TerminateUI()
 	app.state = Exit
 }
 
