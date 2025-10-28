@@ -102,14 +102,12 @@ func (this *Client) Send(message string) error {
 func (this *Client) recv() (ReceivedMessage, error) {
 	resp, err := this.stream.Recv()
 	this.clock.Tick()
-
+	
 	if err == io.EOF {
 		this.stream.CloseSend()
-		return ReceivedMessage{ErrEvent, "", "", this.clock.Now()}, err
-	}
-
-	if err != nil {
-		return ReceivedMessage{ErrEvent, "", "", this.clock.Now()}, err
+		return ReceivedMessage {ErrEvent, "", "", this.clock.Now()}, err
+	} else if resp == nil {
+		return ReceivedMessage {ErrEvent, "", "", this.clock.Now()}, err
 	}
 
 	this.clock.Sync(clocks.From(resp.Timestamp))
