@@ -144,9 +144,10 @@ func (s *Server) Stream(stream pb.ChitChatService_StreamServer) error {
 
 		message := in.GetMessage()
 
-		if len(message) > 128 {
-			return status.Error(codes.InvalidArgument, "message exceeds 128 character limit")
-		}
+        if len(message) > 128 {
+            utils.LogAndPrint("logical timestamp=\"%v\", component=\"server\", type=\"message too long\", username=\"%v\"", eventTimestamp, client.username)
+            continue
+        }
 
 		utils.LogAndPrint("logical timestamp=\"%v\", component=\"server\", type=\"received message\", username=\"%v\", message=\"%v\"", eventTimestamp, client.username, message)
 		s.clock.Tick()
