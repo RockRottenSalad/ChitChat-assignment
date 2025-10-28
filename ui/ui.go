@@ -69,6 +69,7 @@ const VK_UP = 0x26
 const VK_RIGHT = 0x27
 const VK_DOWN = 0x28
 const VK_ESCAPE = 0x1B
+const VK_RETURN = 0x0D
 
 const VK_0 = 0x30
 const VK_9 = 0x39
@@ -119,6 +120,8 @@ func (ui *UI) charReaderWindows() {
 			ui.callback(Key{isSpecial: true, special: ArrowDown })
 			case VK_ESCAPE:
 			ui.callback(Key{isSpecial: true, special: Esc })
+			case VK_RETURN:
+			ui.callback(Key{isSpecial: true, special: Return })
 		}
 	}
 
