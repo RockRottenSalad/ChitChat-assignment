@@ -10,8 +10,8 @@ import (
 	"os"
 	"sync"
 
-	clocks "ChitChat/logical_clocks"
 	pb "ChitChat/grpc"
+	clocks "ChitChat/logical_clocks"
 	"ChitChat/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -187,7 +187,7 @@ func (s *Server) Broadcast(response *pb.StreamResponse) {
 	s.mu.Lock()
 	var clientsToDisconnect []*Client
 
-	utils.LogAndPrint("logical timestamp=\"%v\", component=\"server\", type=\"broadcast\", message=\"%v\"", response.Timestamp, response.Event)
+	utils.LogAndPrint("logical timestamp=\"%v\", component=\"server\", type=\"broadcast\", message=\"%v\"", response.Timestamp, response)
 	for _, client := range s.clients {
 		if client.stream == nil {
 			continue
