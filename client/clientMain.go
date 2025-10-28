@@ -210,8 +210,13 @@ func (app *Application) ShouldExit() bool {
 }
 
 func (app *Application) Log(msg string) {
-	log.Printf("logical timestamp=\"%v\", component=\"client\", type=\"%v\", username=\"%v\"",
-		app.client.clock.Now(), msg, app.client.Username())
+	if app.client != nil {
+		log.Printf("logical timestamp=\"%v\", component=\"client\", type=\"%v\", username=\"%v\"",
+			app.client.clock.Now(), msg, app.client.Username())
+	} else {
+		log.Printf("Client exiting")
+	}
+
 }
 
 func main() {
