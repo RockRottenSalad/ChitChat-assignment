@@ -198,10 +198,10 @@ func (app *Application) renderStartMenu() {
 }
 
 func (app *Application) appExit() {
+	app.tui.TerminateUI()
 	if app.client != nil {
 		app.client.Close()
 	}
-	app.tui.TerminateUI()
 	app.state = Exit
 }
 
