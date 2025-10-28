@@ -26,10 +26,25 @@ func main() {
 	fd, _ := os.Create(logFile)
 	log.SetOutput(fd)
 
-	if runtime.GOOS == "windows" {
-		runWindows();
+	n := len(os.Args)
+
+	if n == 1 {
+		if runtime.GOOS == "windows" {
+			runWindows();
+		} else {
+			runUnix();
+		}
 	} else {
-		runUnix();
+		switch os.Args[1] {
+		case "simple":
+			runWindows();
+		case "tui":
+			runUnix();
+		default:
+			println("Unknown argument: " + os.Args[1])
+			println("Expected one of the following: 'tui', 'simple'")
+			println("Defaults to 'tui' on Unix systems and 'simple' on Windows sytems")
+		}
 	}
 
 }
