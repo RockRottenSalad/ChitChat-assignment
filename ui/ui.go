@@ -5,6 +5,9 @@ import (
 	"strings"
 	"os"
 	"log"
+	"runtime"
+	"encoding/binary"
+	"bytes"
 	term "golang.org/x/term"
 )
 
@@ -58,8 +61,70 @@ const (
 // \u001B[
 const escape = "\033["
 
-func (ui *UI) charReader() {
-//	reader := bufio.NewReader(os.Stdin)
+// https://learn.microsoft.com/en-us/windows/console/input-record-str
+const KEY_EVENT = 0x0001
+const VK_BACK = 0x08
+const VK_LEFT = 0x25
+const VK_UP = 0x26
+const VK_RIGHT = 0x27
+const VK_DOWN = 0x28
+const VK_ESCAPE = 0x1B
+
+const VK_0 = 0x30
+const VK_9 = 0x39
+const VK_A = 0x41
+const VK_Z = 0x5A
+
+func isLetterOrNumber(key *WindowsKey) bool {
+	return (VK_0 <= key.VirtualKeyCode && key.VirtualKeyCode <= VK_9) || (VK_A <= key.VirtualKeyCode && key.VirtualKeyCode <= VK_Z);
+}
+
+func (ui *UI) charReaderWindows() {
+	buf := make([]byte, 16);
+
+	for {
+		n, _ := os.Stdin.Read(buf[:])
+		if n != 16 {
+			log.Printf("INVALID KEY EVENT: %v", buf)
+			continue
+		}
+
+		windowsEvent := WindowsKey{}
+
+		// This cannot fail since we've checked that n == 16
+		binary.Read(bytes.NewBuffer(buf[:]), binary.NativeEndian, &windowsEvent)
+
+		if windowsEvent.Type != KEY_EVENT {
+			continue
+		} else if !windowsEvent.KeyDown {
+			// Key released
+			continue
+		} 
+
+		if isLetterOrNumber(&windowsEvent) {
+			ui.callback(Key{isSpecial: false, letter: rune(windowsEvent.char) })
+			continue
+		}
+
+		switch windowsEvent.VirtualKeyCode {
+			case VK_BACK:
+			ui.callback(Key{isSpecial: true, special: Backspace })
+			case VK_LEFT:
+			ui.callback(Key{isSpecial: true, special: ArrowLeft })
+			case VK_UP:
+			ui.callback(Key{isSpecial: true, special: ArrowUp })
+			case VK_RIGHT:
+			ui.callback(Key{isSpecial: true, special: ArrowRight })
+			case VK_DOWN:
+			ui.callback(Key{isSpecial: true, special: ArrowDown })
+			case VK_ESCAPE:
+			ui.callback(Key{isSpecial: true, special: Esc })
+		}
+	}
+
+}
+
+func (ui *UI) charReaderUnix() {
 	buf := make([]byte, 3)
 	for {
 //		char, _, _ := reader.ReadRune()
@@ -102,6 +167,16 @@ func (ui *UI) charReader() {
 		}
 
 	}
+
+}
+
+func (ui *UI) charReader() {
+	if runtime.GOOS == "windows" {
+		ui.charReaderWindows();
+	} else {
+		ui.charReaderUnix();
+	}
+//	reader := bufio.NewReader(os.Stdin)
 }
 
 func NewUI() *UI {
@@ -112,7 +187,7 @@ func NewUI() *UI {
 	*ui = UI {
 		fg: Default, bg: Default,
 		row: 0, column: 0,
-		height: uint(height), width: uint(width),
+		height: max(uint(height), 1), width: max(uint(width), 1),
 		buffer: &strings.Builder{},
 		prevState: prevState,
 		callback: func(ch Key) {fmt.Printf("Unhandled callback: '%q'\n", ch)}}
@@ -181,8 +256,8 @@ func styleEscapeCode(style Style) uint {
 
 func (ui *UI) updateTerminalDimensions() {
 	width, height, _ := term.GetSize(int(os.Stdout.Fd()))
-	ui.width = uint(width)
-	ui.height = uint(height)
+	ui.width = max(uint(width), 1)
+	ui.height = max(uint(height), 1)
 }
 
 func colorEscapeCode(color Color, colorType ColorType) uint {
@@ -284,6 +359,18 @@ func (ui *UI) SetCallback(cb func(Key)) {
 	ui.callback = cb
 }
 
+// Just a temporary buffer.
+// Tis gets back into Key later
+type WindowsKey struct {
+	Type uint16
+	_ [2]byte
+	KeyDown bool 
+	RepeatCount uint16
+	VirtualKeyCode uint16
+	VirtualScanCode uint16
+	char uint16
+	ControlKeyState uint32
+}
 
 type Key struct {
 	special SpecialKey

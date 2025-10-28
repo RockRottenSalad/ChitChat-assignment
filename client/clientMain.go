@@ -204,7 +204,9 @@ func (app *Application) renderStartMenu() {
 
 func (app *Application) appExit() {
 	app.tui.TerminateUI()
-	app.client.Close()
+	if app.state == InChat {
+		app.client.Close()
+	}
 	app.state = Exit
 }
 
