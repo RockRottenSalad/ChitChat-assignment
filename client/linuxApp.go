@@ -121,6 +121,12 @@ func (app *Application) handleInput(key ui.Key) {
 }
 
 func (app *Application) handleMessage(msg ReceivedMessage) {
+	if msg.event == ErrEvent {
+		println("Got error - exiting")
+		app.Log("Got error - exiting")
+		app.appExit()
+		return
+	}
 	app.messages = append(app.messages, msg)
 
 	app.Log("Got message: " + fmt.Sprintf("%v", msg))
