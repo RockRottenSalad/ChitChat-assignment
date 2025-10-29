@@ -218,10 +218,12 @@ func (s *Server) Broadcast(response *pb.StreamResponse) {
 	utils.LogAndPrint("logical timestamp=\"%v\", component=\"server\", type=\"broadcast\", message=\"%v\"", response.Timestamp, response)
 	s.mu.Lock()
 	for _, client := range s.clients {
-		select {
-		case client.send <- response:
-		default: // If a client is slow (their send channel is full) we simply drop the messages
-			continue
+		if client.send != nil {
+			select {
+			case client.send <- response:
+			default: // If a client is slow (their send channel is full) we simply drop the messages
+				continue
+			}
 		}
 	}
 	s.mu.Unlock()
