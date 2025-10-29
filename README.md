@@ -16,6 +16,7 @@ root
 | -- client  # The client source code
 | -- clocks  # Logical clocks
 | -- grpc    # Proto buffers files
+| -- logs    # Log files from running server with 3 clients
 | -- scripts # Scripts for automation of certain taks
 | -- server  # The server source code
 | -- ui      # A simple TUI library for POSIX unix systems

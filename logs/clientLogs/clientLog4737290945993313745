@@ -1,0 +1,8 @@
+2025/10/29 15:06:30 logical timestamp="3", component="client", type="Client connected to server", username="bob"
+2025/10/29 15:06:33 logical timestamp="7", component="client", type="Got message: {1 alice  7}", username="bob"
+2025/10/29 15:06:42 logical timestamp="10", component="client", type="Got message: {0 alice Hello, World! 10}", username="bob"
+2025/10/29 15:07:39 logical timestamp="14", component="client", type="Got message: {0 You We also support UTF-8. ÆØÅ 14}", username="bob"
+2025/10/29 15:09:20 logical timestamp="17", component="client", type="Got message: {1 charlie  17}", username="bob"
+2025/10/29 15:09:35 logical timestamp="20", component="client", type="Got message: {0 charlie Foo Bar! Bar Foo! 20}", username="bob"
+2025/10/29 15:09:41 logical timestamp="24", component="client", type="Got message: {0 You Goodbye 24}", username="bob"
+2025/10/29 15:09:43 logical timestamp="24", component="client", type="Client exiting", username="bob"

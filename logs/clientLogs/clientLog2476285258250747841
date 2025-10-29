@@ -1,0 +1,7 @@
+2025/10/29 15:09:20 logical timestamp="16", component="client", type="Client connected to server", username="charlie"
+2025/10/29 15:09:35 logical timestamp="20", component="client", type="Got message: {0 You Foo Bar! Bar Foo! 20}", username="charlie"
+2025/10/29 15:09:41 logical timestamp="24", component="client", type="Got message: {0 bob Goodbye 24}", username="charlie"
+2025/10/29 15:09:43 logical timestamp="26", component="client", type="Got message: {2 bob  26}", username="charlie"
+2025/10/29 15:10:14 logical timestamp="30", component="client", type="Got message: {0 alice Lorem Ipsum 30}", username="charlie"
+2025/10/29 15:10:16 logical timestamp="32", component="client", type="Got message: {2 alice  32}", username="charlie"
+2025/10/29 15:10:18 logical timestamp="32", component="client", type="Client exiting", username="charlie"
