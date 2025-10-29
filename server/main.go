@@ -33,12 +33,12 @@ type Client struct {
 	username string
 	token    string
 	stream   pb.ChitChatService_StreamServer
+	send     chan *pb.StreamResponse
 }
 
 type Server struct {
 	pb.UnimplementedChitChatServiceServer
 
-	// The clock implementation is thread safe by default
 	clock clocks.LamportClock
 
 	mu        sync.Mutex
@@ -114,6 +114,21 @@ func (s *Server) AuthClient(ctx context.Context) (*Client, error) {
 	return client, nil
 }
 
+func (c *Client) ClientBroadcasterHandler(ctx context.Context, errorChan chan error) {
+	for {
+		select {
+		case <-ctx.Done():
+			errorChan <- ctx.Err()
+			return
+		case msg := <-c.send:
+			if err := c.stream.Send(msg); err != nil {
+				errorChan <- err
+				return
+			}
+		}
+	}
+}
+
 // Stream is multi-threaded by default
 // Whenever a client calls Stream() grpc spawns a new thread through this method
 func (s *Server) Stream(stream pb.ChitChatService_StreamServer) error {
@@ -126,11 +141,22 @@ func (s *Server) Stream(stream pb.ChitChatService_StreamServer) error {
 	}
 
 	// Update the stream of the client
-	s.mu.Lock()
+	// Create channel for communication
 	client.stream = stream
-	s.mu.Unlock()
+	client.send = make(chan *pb.StreamResponse, 32)
+
+	// Spawns goroutine to handle broadcasting to the client
+	errorChan := make(chan error, 1)
+	go client.ClientBroadcasterHandler(stream.Context(), errorChan)
 
 	for {
+		select {
+		case <-errorChan:
+			s.DisconnectClient(client)
+			return nil
+		default:
+		}
+
 		in, err := stream.Recv()
 		if err == io.EOF { // If the client called CloseSend()
 			s.DisconnectClient(client)
@@ -191,30 +217,17 @@ func (s *Server) DisconnectClient(c *Client) {
 func (s *Server) Broadcast(response *pb.StreamResponse) {
 	utils.LogAndPrint("logical timestamp=\"%v\", component=\"server\", type=\"broadcast\", message=\"%v\"", response.Timestamp, response)
 	s.mu.Lock()
-	var clientsCopy []*Client
-	var clientsToDisconnect []*Client
-
-	for _, c := range s.clients {
-		if c.stream == nil {
-			continue
+	for _, client := range s.clients {
+		if client.send != nil {
+			select {
+			case client.send <- response:
+			default: // If a client is slow (their send channel is full) we simply drop the messages
+				continue
+			}
 		}
-		clientsCopy = append(clientsCopy, c)
 	}
 	s.mu.Unlock()
-
-	// While the send operation is blocking, our lock on the server is released making the operation non blocking
-	// We have decided against spawning a goroutine for each send, because it would cause problems with a lot of clients
-	for _, client := range clientsCopy {
-		if err := client.stream.Send(response); err != nil {
-			utils.LogAndPrint("Broadcast of %v to client %s failed, marking client for removal", response, client.username)
-			clientsToDisconnect = append(clientsToDisconnect, client)
-		}
-	}
 	s.clock.Tick()
-
-	for _, client := range clientsToDisconnect {
-		s.DisconnectClient(client)
-	}
 }
 
 func main() {
