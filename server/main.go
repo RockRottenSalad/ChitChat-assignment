@@ -146,7 +146,7 @@ func (s *Server) Stream(stream pb.ChitChatService_StreamServer) error {
 	client.send = make(chan *pb.StreamResponse, 32)
 
 	// Spawns goroutine to handle broadcasting to the client
-	errorChan := make(chan error)
+	errorChan := make(chan error, 1)
 	go client.ClientBroadcasterHandler(stream.Context(), errorChan)
 
 	for {
