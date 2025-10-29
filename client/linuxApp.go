@@ -157,31 +157,38 @@ func (app *Application) render() {
 
 func (app *Application) renderMessages() {
 	app.tui.SetCursor(0, 0)
-	app.tui.Write("Chit Chat", ui.Red, ui.Default, ui.Underlined)
+	app.tui.Write("Connected to ChitChat", ui.Red, ui.Default, ui.Underlined)
 
-	for i := range len(app.messages) {
-		app.tui.SetCursor(uint(i+1), 2)
+	n := len(app.messages)
+
+	totalSpace := int(app.tui.GetUIHeight()) - 2
+
+	msg := max(n - totalSpace-1, 0)
+
+	for r := 0; r < totalSpace && msg < n; r++ {
+		app.tui.SetCursor(uint(r+1), 2)
 
 		var col ui.Color
-		if app.messages[i].author == "You" {
+		if app.messages[msg].author == "You" {
 			col = ui.Blue
 		} else {
 			col = ui.Red
 		}
 
-		switch app.messages[i].event {
+		switch app.messages[msg].event {
 		case LoginEvent:
-			app.tui.Write(fmt.Sprintf("%s @ %d connected to the chat", app.messages[i].author, app.messages[i].lamportTimestamp), ui.Default, ui.Default, ui.Normal)
+			app.tui.Write(fmt.Sprintf("%s @ %d connected to the chat", app.messages[msg].author, app.messages[msg].lamportTimestamp), ui.Default, ui.Default, ui.Normal)
 		case LogoutEvent:
-			app.tui.Write(fmt.Sprintf("%s @ %d disconnected from the chat", app.messages[i].author, app.messages[i].lamportTimestamp), ui.Default, ui.Default, ui.Normal)
+			app.tui.Write(fmt.Sprintf("%s @ %d disconnected from the chat", app.messages[msg].author, app.messages[msg].lamportTimestamp), ui.Default, ui.Default, ui.Normal)
 		case MessageEvent:
-			app.tui.Write(fmt.Sprintf("%s @ %d: ", app.messages[i].author, app.messages[i].lamportTimestamp), ui.Default, col, ui.Italic)
-			app.tui.Write(app.messages[i].message,
+			app.tui.Write(fmt.Sprintf("%s @ %d: ", app.messages[msg].author, app.messages[msg].lamportTimestamp), ui.Default, col, ui.Italic)
+			app.tui.Write(app.messages[msg].message,
 				ui.Default, ui.Default, ui.Normal)
 		}
+		msg++
 	}
 
-	cursorRow := uint(len(app.messages) + 1)
+	cursorRow := uint(msg+1)
 	app.tui.SetCursor(cursorRow, 0)
 	app.tui.Write("> ", ui.Blue, ui.Default, ui.Bold)
 	app.tui.Write(app.inputBuffer.String(), ui.Default, ui.Default, ui.Normal)
